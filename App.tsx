@@ -1,67 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  useColorScheme,
   Platform,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Clock, Globe, Compass, Calendar, Sun, Moon } from 'lucide-react-native';
-import { AppTab, City } from './types';
-import { COLORS, MOCK_CITIES } from './constants';
+import { AppTab } from './types';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { CityProvider, useCity } from './context/CityContext';
 import Vakitler from './components/Vakitler';
 import Sehirler from './components/Sehirler';
 import Kible from './components/Kible';
 import Gunler from './components/Gunler';
 
 const MainScreen: React.FC = () => {
-  const systemColorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { isDarkMode, theme, toggleTheme } = useTheme();
+  const { cities, currentCity, updateCities } = useCity();
   const [activeTab, setActiveTab] = useState<AppTab>(AppTab.VAKITLER);
-  const [cities, setCities] = useState<City[]>(MOCK_CITIES);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(systemColorScheme === 'dark');
-
-  // Load saved theme and cities safely
-  useEffect(() => {
-    const loadSavedData = async () => {
-      try {
-        const savedTheme = await AsyncStorage.getItem('ezan_theme');
-        if (savedTheme !== null) {
-          setIsDarkMode(savedTheme === 'dark');
-        }
-        const savedCities = await AsyncStorage.getItem('ezan_saved_cities');
-        if (savedCities) {
-          const parsed = JSON.parse(savedCities);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setCities(parsed);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load saved preferences:', e);
-      }
-    };
-    loadSavedData();
-  }, []);
-
-  const toggleTheme = async () => {
-    const nextTheme = !isDarkMode;
-    setIsDarkMode(nextTheme);
-    await AsyncStorage.setItem('ezan_theme', nextTheme ? 'dark' : 'light');
-  };
-
-  const updateCities = (newCities: City[]) => {
-    const safeCities = newCities.length > 0 ? newCities : MOCK_CITIES;
-    setCities(safeCities);
-    AsyncStorage.setItem('ezan_saved_cities', JSON.stringify(safeCities)).catch(console.error);
-  };
-
-  // Safe current city fallback
-  const currentCity = cities.find(c => c.isCurrent) || cities[0] || MOCK_CITIES[0];
-  const theme = isDarkMode ? COLORS.dark : COLORS.light;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -156,7 +116,11 @@ const MainScreen: React.FC = () => {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <MainScreen />
+      <ThemeProvider>
+        <CityProvider>
+          <MainScreen />
+        </CityProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

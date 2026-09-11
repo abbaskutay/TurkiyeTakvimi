@@ -77,19 +77,21 @@ export interface ApiVakitResponse {
   vakit: ApiVakitItem[];
 }
 
+export type ApiTextField = string | number | { '#text'?: string; '#cdata-section'?: string } | null | undefined;
+
 export interface ApiTakvimVeri {
   '@attributes'?: {
     Tarih?: string;
   };
-  MiladiTarih?: any;
-  HicriTarih?: any;
-  GununSozu?: any;
-  GununOlayi?: any;
-  IsimYemek?: any;
+  MiladiTarih?: ApiTextField;
+  HicriTarih?: ApiTextField;
+  GununSozu?: ApiTextField;
+  GununOlayi?: ApiTextField;
+  IsimYemek?: ApiTextField;
   Arkayuz?: {
     '@attributes'?: { YaziNo?: string };
-    Baslik?: any;
-    Yazi?: any;
+    Baslik?: ApiTextField;
+    Yazi?: ApiTextField;
   };
 }
 
@@ -97,29 +99,30 @@ export interface ApiTakvimVeri {
  * Helper to safely extract string text from API JSON fields
  * which might be strings, empty objects {}, or CDATA structures.
  */
-export function extractApiText(field: any): string {
+export function extractApiText(field: unknown): string {
   if (!field) return '';
   if (typeof field === 'string') return field.trim();
   if (typeof field === 'number') return String(field);
   if (typeof field === 'object') {
-    if (field['#text'] && typeof field['#text'] === 'string') return field['#text'].trim();
-    if (field['#cdata-section'] && typeof field['#cdata-section'] === 'string') return field['#cdata-section'].trim();
+    const obj = field as Record<string, unknown>;
+    if (obj['#text'] && typeof obj['#text'] === 'string') return obj['#text'].trim();
+    if (obj['#cdata-section'] && typeof obj['#cdata-section'] === 'string') return obj['#cdata-section'].trim();
   }
   return '';
 }
 
 /**
- * Helper to fetch data with automatic HTTP fallback if HTTPS fails (e.g. SSL certificate trust errors on Android).
+ * Helper to fetch data with automatic HTTP fallback if HTTPS fails.
  */
 async function safeFetch(url: string, options?: RequestInit): Promise<Response> {
   try {
     return await fetch(url, options);
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (url.startsWith('https://')) {
       const httpUrl = url.replace('https://', 'http://');
       try {
         return await fetch(httpUrl, options);
-      } catch (httpError) {
+      } catch {
         throw error;
       }
     }
@@ -173,12 +176,13 @@ export const turkTakvimApi = {
   },
 
   /**
-   * Searches locations by term
+   * Searches locations by term with optional AbortSignal support
    */
-  async searchCities(query: string, limit: number = 10): Promise<ApiSearchResult[]> {
+  async searchCities(query: string, limit: number = 10, signal?: AbortSignal): Promise<ApiSearchResult[]> {
     try {
       const response = await safeFetch(
-        `${BASE_URL}?tip=arama&SearchName=${encodeURIComponent(query)}&adet=${limit}&sayfa=1&format=json`
+        `${BASE_URL}?tip=arama&SearchName=${encodeURIComponent(query)}&adet=${limit}&sayfa=1&format=json`,
+        { signal }
       );
       const data = await response.json();
       let list = data.city || [];
@@ -186,7 +190,10 @@ export const turkTakvimApi = {
         list = [list];
       }
       return list;
-    } catch (e) {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        return [];
+      }
       console.error('searchCities error:', e);
       return [];
     }

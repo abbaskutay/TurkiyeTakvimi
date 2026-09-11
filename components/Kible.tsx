@@ -11,14 +11,18 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Text as SvgText, G, Path, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Location from 'expo-location';
-import { RefreshCw, Target, Activity, Compass, CheckCircle2, ShieldAlert } from 'lucide-react-native';
+import { RefreshCw, Target, Activity, Compass, CheckCircle2 } from 'lucide-react-native';
 import { City } from '../types';
 import { COLORS } from '../constants';
 import { turkTakvimApi } from '../services/turkTakvimApi';
+import { useTheme } from '../context/ThemeContext';
+import { useCity } from '../context/CityContext';
+import { useCompassSensor } from '../hooks/useCompassSensor';
+import { calculateDirectQibla } from '../utils/qiblaUtils';
 
 interface KibleProps {
-  currentCity: City;
-  isDarkMode: boolean;
+  currentCity?: City;
+  isDarkMode?: boolean;
 }
 
 interface QiblaData {
@@ -32,41 +36,13 @@ interface QiblaData {
   accuracy: number;
 }
 
-function calculateDirectQibla(lat1: number, lon1: number) {
-  const lat2 = 21.4225; // Kaaba latitude
-  const lon2 = 39.8262; // Kaaba longitude
+export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
+  const { isDarkMode, theme } = useTheme();
+  const { currentCity: contextCity } = useCity();
+  const currentCity = propCity || contextCity;
 
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const toDeg = (rad: number) => (rad * 180) / Math.PI;
-
-  const phi1 = toRad(lat1);
-  const phi2 = toRad(lat2);
-  const deltaLambda = toRad(lon2 - lon1);
-
-  const y = Math.sin(deltaLambda) * Math.cos(phi2);
-  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
-
-  let bearing = toDeg(Math.atan2(y, x));
-  bearing = (bearing + 360) % 360;
-
-  const R = 6371;
-  const dLat = phi2 - phi1;
-  const dLon = deltaLambda;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = Math.round(R * c);
-
-  return { bearing, distance };
-}
-
-export const Kible: React.FC<KibleProps> = ({ currentCity, isDarkMode }) => {
-  const theme = isDarkMode ? COLORS.dark : COLORS.light;
   const [loading, setLoading] = useState(false);
-  const [deviceHeading, setDeviceHeading] = useState<number>(0);
-  const [headingSubscription, setHeadingSubscription] = useState<Location.LocationSubscription | null>(null);
-  const [compassAvailable, setCompassAvailable] = useState<boolean>(true);
+  const { deviceHeading, compassAvailable } = useCompassSensor(0.5);
 
   const [qiblaData, setQiblaData] = useState<QiblaData>({
     angle: 151.66,
@@ -81,17 +57,14 @@ export const Kible: React.FC<KibleProps> = ({ currentCity, isDarkMode }) => {
 
   const cityID = currentCity.cityID || '16741';
 
-  // Smooth compass needle animation
+  // Smooth compass animation drivers
   const animatedCompass = useRef(new Animated.Value(0)).current;
   const animatedNeedle = useRef(new Animated.Value(151.66)).current;
 
-  // Calculate target relative needle angle
   const targetNeedleAngle = useMemo(() => {
-    let diff = (qiblaData.angle - deviceHeading + 360) % 360;
-    return diff;
+    return (qiblaData.angle - deviceHeading + 360) % 360;
   }, [qiblaData.angle, deviceHeading]);
 
-  // Check alignment status (within ±4 degrees of Qibla)
   const isAligned = useMemo(() => {
     const diff = Math.abs((targetNeedleAngle + 360) % 360);
     return diff <= 4 || Math.abs(diff - 360) <= 4;
@@ -111,44 +84,11 @@ export const Kible: React.FC<KibleProps> = ({ currentCity, isDarkMode }) => {
       tension: 40,
       useNativeDriver: true,
     }).start();
-  }, [deviceHeading, targetNeedleAngle]);
-
-  // Subscribe to live compass heading from device sensors
-  useEffect(() => {
-    let sub: Location.LocationSubscription | null = null;
-
-    const startHeadingWatch = async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          sub = await Location.watchHeadingAsync(data => {
-            const heading = data.trueHeading >= 0 ? data.trueHeading : data.magHeading;
-            if (heading >= 0) {
-              setDeviceHeading(heading);
-              setCompassAvailable(true);
-            }
-          });
-          setHeadingSubscription(sub);
-        }
-      } catch (e) {
-        console.log('Compass sensor not available on device:', e);
-        setCompassAvailable(false);
-      }
-    };
-
-    startHeadingWatch();
-
-    return () => {
-      if (sub) {
-        sub.remove();
-      }
-    };
-  }, []);
+  }, [deviceHeading, targetNeedleAngle, animatedCompass, animatedNeedle]);
 
   const calculateQibla = async () => {
     setLoading(true);
     try {
-      // First try fetching cityinfo from Türk Takvimi API
       const res = await turkTakvimApi.getPrayerTimes(cityID);
       let apiQiblaAngle: number | null = null;
       let apiMagDeg: number | null = null;
@@ -163,7 +103,6 @@ export const Kible: React.FC<KibleProps> = ({ currentCity, isDarkMode }) => {
         }
       }
 
-      // Fetch GPS position for distance and live precision
       let latitude = 41.0082;
       let longitude = 28.9784;
       let accuracy = 10;
@@ -281,7 +220,6 @@ export const Kible: React.FC<KibleProps> = ({ currentCity, isDarkMode }) => {
 
             {/* Rotatable Compass Dial Group */}
             <G transform={`rotate(${-deviceHeading}, 100, 100)`}>
-              {/* Compass Base Circle */}
               <Circle
                 cx="100"
                 cy="100"
@@ -373,7 +311,6 @@ export const Kible: React.FC<KibleProps> = ({ currentCity, isDarkMode }) => {
 
             {/* Target Qibla Needle Group */}
             <G transform={`rotate(${targetNeedleAngle}, 100, 100)`}>
-              {/* Needle Shadow & Arrow */}
               <Path d="M100 135 L124 100 L76 100 Z" fill="rgba(0,0,0,0.15)" />
               <Path
                 d="M100 135 L128 100 L72 100 Z"
@@ -400,13 +337,11 @@ export const Kible: React.FC<KibleProps> = ({ currentCity, isDarkMode }) => {
                 KIBLE
               </SvgText>
 
-              {/* Kaaba Center Emblem */}
               <G transform="translate(94, 35)">
                 <Rect width="12" height="12" fill="#111111" rx="1" />
                 <Rect y="4" width="12" height="2" fill="#d4af37" />
               </G>
 
-              {/* Pivot Center Circles */}
               <Circle
                 cx="100"
                 cy="100"

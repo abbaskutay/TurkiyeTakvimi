@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,20 +25,32 @@ import {
 import { City } from '../types';
 import { COLORS } from '../constants';
 import { turkTakvimApi, ApiSearchResult } from '../services/turkTakvimApi';
+import { useTheme } from '../context/ThemeContext';
+import { useCity } from '../context/CityContext';
 
 interface SehirlerProps {
-  cities: City[];
-  onUpdateCities: (newCities: City[]) => void;
-  isDarkMode: boolean;
+  cities?: City[];
+  onUpdateCities?: (newCities: City[]) => void;
+  isDarkMode?: boolean;
 }
 
-export const Sehirler: React.FC<SehirlerProps> = ({ cities, onUpdateCities, isDarkMode }) => {
-  const theme = isDarkMode ? COLORS.dark : COLORS.light;
+export const Sehirler: React.FC<SehirlerProps> = ({
+  cities: propCities,
+  onUpdateCities: propOnUpdateCities,
+}) => {
+  const { isDarkMode, theme } = useTheme();
+  const { cities: contextCities, updateCities: contextUpdateCities, selectCity } = useCity();
+
+  const cities = propCities || contextCities;
+  const onUpdateCities = propOnUpdateCities || contextUpdateCities;
+
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ApiSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleSearch = async (query: string) => {
     if (query.trim().length < 2) {
@@ -46,11 +58,19 @@ export const Sehirler: React.FC<SehirlerProps> = ({ cities, onUpdateCities, isDa
       return;
     }
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     try {
-      const results = await turkTakvimApi.searchCities(query, 12);
+      const results = await turkTakvimApi.searchCities(query, 12, abortControllerRef.current.signal);
       setSearchResults(results);
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('City search error:', error);
       setSearchResults([]);
     } finally {
@@ -66,7 +86,13 @@ export const Sehirler: React.FC<SehirlerProps> = ({ cities, onUpdateCities, isDa
         setSearchResults([]);
       }
     }, 400);
-    return () => clearTimeout(timer);
+
+    return () => {
+      clearTimeout(timer);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [searchQuery]);
 
   const selectSearchResult = (result: ApiSearchResult) => {
@@ -142,12 +168,11 @@ export const Sehirler: React.FC<SehirlerProps> = ({ cities, onUpdateCities, isDa
         if (searchRes && searchRes.length > 0) {
           selectSearchResult(searchRes[0]);
         } else {
-          // Fallback if search has no match
           const district = item.subregion || item.district || 'Merkez';
           const city = item.region || item.city || 'İstanbul';
           const newCity: City = {
             id: Date.now().toString(),
-            cityID: '16741', // default istanbul
+            cityID: '16741',
             name: `${district} / ${city}`,
             district,
             city,
@@ -302,7 +327,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({ cities, onUpdateCities, isDa
             activeOpacity={0.8}
             onPress={() => {
               if (!isEditing) {
-                onUpdateCities(cities.map(c => ({ ...c, isCurrent: c.id === item.id })));
+                selectCity(item.id);
               }
             }}
             style={[

@@ -5,15 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  Platform,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Sunrise,
   Sun,
@@ -25,10 +23,6 @@ import {
   AlertTriangle,
   Stars,
   CloudMoon,
-  Bell,
-  BellOff,
-  X,
-  Zap,
   Quote,
   History,
   BookOpen,
@@ -41,8 +35,15 @@ import {
   mapVakitToGridPrayerTimes,
 } from '../constants';
 import { City, PrayerTime, DetailedPrayerTime, ReminderConfig } from '../types';
-import { turkTakvimApi, ApiVakitItem, extractApiText } from '../services/turkTakvimApi';
 import { notificationService } from '../services/notificationService';
+import { storageService } from '../services/storageService';
+import { useTheme } from '../context/ThemeContext';
+import { useCity } from '../context/CityContext';
+import { usePrayerTimes } from '../hooks/usePrayerTimes';
+import { CountdownBanner } from './vakitler/CountdownBanner';
+import { PrayerListCard } from './vakitler/PrayerListCard';
+import { GridPrayerCard } from './vakitler/GridPrayerCard';
+import { ReminderModal } from './vakitler/ReminderModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -55,153 +56,58 @@ const DAY_NAMES_TR = [
   'PAZAR', 'PAZARTESİ', 'SALI', 'ÇARŞAMBA', 'PERŞEMBE', 'CUMA', 'CUMARTESİ'
 ];
 
-function getLocalDateString(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 interface VakitlerProps {
-  currentCity: City;
-  isDarkMode: boolean;
+  currentCity?: City;
+  isDarkMode?: boolean;
 }
 
-export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) => {
-  const theme = isDarkMode ? COLORS.dark : COLORS.light;
+export const Vakitler: React.FC<VakitlerProps> = ({ currentCity: propCity }) => {
+  const { isDarkMode, theme } = useTheme();
+  const { currentCity: contextCity } = useCity();
+  const currentCity = propCity || contextCity;
+
   const [reminders, setReminders] = useState<Record<string, ReminderConfig>>({});
   const [globalRemindersEnabled, setGlobalRemindersEnabled] = useState(true);
   const [activePage, setActivePage] = useState(0);
-  const [now, setNow] = useState(new Date());
   const [showSettings, setShowSettings] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [vakitList, setVakitList] = useState<ApiVakitItem[]>([]);
-  const [todayVakit, setTodayVakit] = useState<ApiVakitItem | null>(null);
-  const [tomorrowVakit, setTomorrowVakit] = useState<ApiVakitItem | null>(null);
-  const [calendarDetail, setCalendarDetail] = useState<{
-    gununSozu?: string;
-    gununOlayi?: string;
-    arkayuzBaslik?: string;
-    arkayuzYazi?: string;
-  }>({});
   const scrollRef = useRef<ScrollView>(null);
 
   const cityID = currentCity.cityID || currentCity.id || '16741';
 
-  // Load prayer times and daily calendar info from TurkTakvim API (with cache)
-  const fetchPrayerTimes = async (forceRefresh = false) => {
-    if (!forceRefresh) {
-      setLoading(true);
-    }
-    const cacheKey = `vakit_data_${cityID}`;
-    const todayStr = getLocalDateString(new Date());
+  const {
+    vakitList,
+    todayVakit,
+    tomorrowVakit,
+    calendarDetail,
+    loading,
+    refreshing,
+    onRefresh,
+  } = usePrayerTimes(cityID);
 
-    try {
-      if (!forceRefresh) {
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed: ApiVakitItem[] = JSON.parse(cached);
-          setVakitList(parsed);
-          findAndSetVakits(parsed);
-          setLoading(false);
-        }
-      }
-
-      // 1. Fetch Prayer Times
-      const res = await turkTakvimApi.getPrayerTimes(cityID);
-      if (res && res.vakit && res.vakit.length > 0) {
-        await AsyncStorage.setItem(cacheKey, JSON.stringify(res.vakit));
-        setVakitList(res.vakit);
-        findAndSetVakits(res.vakit);
-      }
-
-      // 2. Fetch Calendar Detail (GununOlayi, GununSozu, Arkayuz)
-      const calendarRes = await turkTakvimApi.getCalendarDetail(todayStr, todayStr);
-      if (calendarRes && calendarRes.length > 0) {
-        const cal = calendarRes[0];
-        const gununSozu = extractApiText(cal.GununSozu);
-        const gununOlayi = extractApiText(cal.GununOlayi);
-        const arkayuzBaslik = extractApiText(cal.Arkayuz?.Baslik);
-        const arkayuzYazi = extractApiText(cal.Arkayuz?.Yazi);
-
-        setCalendarDetail({
-          gununSozu,
-          gununOlayi,
-          arkayuzBaslik,
-          arkayuzYazi,
-        });
-      }
-    } catch (e) {
-      console.error('Error fetching prayer times or calendar detail from Türk Takvimi:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const findAndSetVakits = (list: ApiVakitItem[]) => {
-    const todayDate = new Date();
-    const todayStr = getLocalDateString(todayDate);
-
-    const tomorrowDate = new Date(todayDate);
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    const tomorrowStr = getLocalDateString(tomorrowDate);
-
-    const matchedToday = list.find(v => v['@attributes']?.tarih === todayStr);
-    const matchedTomorrow = list.find(v => v['@attributes']?.tarih === tomorrowStr);
-
-    if (matchedToday) {
-      setTodayVakit(matchedToday);
-    } else if (list.length > 0) {
-      setTodayVakit(list[0]);
-    }
-
-    if (matchedTomorrow) {
-      setTomorrowVakit(matchedTomorrow);
-    }
-  };
-
-  useEffect(() => {
-    fetchPrayerTimes();
-  }, [cityID]);
-
-  // Initialize reminder config from AsyncStorage
+  // Initialize reminder config from storageService
   useEffect(() => {
     const loadReminders = async () => {
-      try {
-        const saved = await AsyncStorage.getItem('prayer_reminders_v3');
-        if (saved) {
-          setReminders(JSON.parse(saved));
-        } else {
-          const config: Record<string, ReminderConfig> = {};
-          MOCK_PRAYER_TIMES.forEach(p => {
-            config[p.id] = { enabled: false, offset: 5 };
-          });
-          setReminders(config);
-        }
-        const globalSaved = await AsyncStorage.getItem('global_reminders_enabled');
-        if (globalSaved !== null) {
-          setGlobalRemindersEnabled(JSON.parse(globalSaved));
-        }
-      } catch (e) {
-        console.error('Error loading reminders:', e);
+      const saved = await storageService.getReminders();
+      if (saved) {
+        setReminders(saved);
+      } else {
+        const config: Record<string, ReminderConfig> = {};
+        MOCK_PRAYER_TIMES.forEach(p => {
+          config[p.id] = { enabled: false, offset: 5 };
+        });
+        setReminders(config);
       }
+      const globalSaved = await storageService.getGlobalRemindersEnabled();
+      setGlobalRemindersEnabled(globalSaved);
     };
     loadReminders();
   }, []);
 
-  // Clock ticker every second
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Reschedule local notifications whenever vakitList, reminders, globalRemindersEnabled, or currentCity changes
+  // Reschedule local notifications whenever vakitList, reminders, or currentCity changes
   useEffect(() => {
     if (vakitList.length > 0 && Object.keys(reminders).length > 0) {
-      AsyncStorage.setItem('prayer_reminders_v3', JSON.stringify(reminders)).catch(console.error);
-      AsyncStorage.setItem('global_reminders_enabled', JSON.stringify(globalRemindersEnabled)).catch(console.error);
+      storageService.setReminders(reminders);
+      storageService.setGlobalRemindersEnabled(globalRemindersEnabled);
 
       notificationService.schedulePrayerNotifications(
         vakitList,
@@ -212,7 +118,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
     }
   }, [vakitList, reminders, globalRemindersEnabled, currentCity]);
 
-  // Map API data or fallback
+  // Map API data or fallbacks
   const mainPrayerTimes: PrayerTime[] = useMemo(() => {
     if (todayVakit) {
       return mapVakitToMainPrayerTimes(todayVakit);
@@ -241,60 +147,42 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
     return gridPrayerTimes;
   }, [tomorrowVakit, gridPrayerTimes]);
 
-  const timeToMinutes = (timeStr: string) => {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return h * 60 + m;
-  };
-
   const flattenedGridTimes = useMemo(() => gridPrayerTimes.flat(), [gridPrayerTimes]);
+  const tomorrowFlattenedGridTimes = useMemo(() => tomorrowGridPrayerTimes.flat(), [tomorrowGridPrayerTimes]);
 
   const activePrayerId = useMemo(() => {
+    const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    let active = mainPrayerTimes[mainPrayerTimes.length - 1].id;
+    const timeToMin = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    let active = mainPrayerTimes[mainPrayerTimes.length - 1]?.id || 'yatsi';
     for (let i = 0; i < mainPrayerTimes.length; i++) {
-      if (timeToMinutes(mainPrayerTimes[i].time) > currentMinutes) {
+      if (timeToMin(mainPrayerTimes[i].time) > currentMinutes) {
         active = i === 0 ? mainPrayerTimes[mainPrayerTimes.length - 1].id : mainPrayerTimes[i - 1].id;
         break;
       }
     }
     return active;
-  }, [now, mainPrayerTimes]);
+  }, [mainPrayerTimes]);
 
-  const countdownInfo = useMemo(() => {
+  const countdownUpcomingId = useMemo(() => {
+    const now = new Date();
     const currentMinutesTotal = now.getHours() * 60 + now.getMinutes();
     const targetSet = activePage === 0 ? mainPrayerTimes : flattenedGridTimes;
-
-    let nextTime = targetSet.find(p => timeToMinutes(p.time) > currentMinutesTotal);
-    let targetDate = new Date(now);
-
-    if (!nextTime) {
-      const tomorrowSet = activePage === 0 ? tomorrowMainPrayerTimes : tomorrowGridPrayerTimes.flat();
-      nextTime = tomorrowSet[0];
-      targetDate.setDate(targetDate.getDate() + 1);
-    }
-
-    const [h, m] = (nextTime.time || '00:00').split(':').map(Number);
-    targetDate.setHours(h, m, 0, 0);
-
-    const diffMs = targetDate.getTime() - now.getTime();
-    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
-
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const totalDurationMs = 4 * 3600 * 1000;
-    const progress = Math.max(0, Math.min(100, 100 - (diffMs / totalDurationMs) * 100));
-
-    return {
-      name: nextTime.name,
-      id: nextTime.id,
-      h: pad(Math.floor(diffSec / 3600)),
-      m: pad(Math.floor((diffSec % 3600) / 60)),
-      s: pad(diffSec % 60),
-      progress,
+    const timeToMin = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
     };
-  }, [now, activePage, mainPrayerTimes, flattenedGridTimes, tomorrowMainPrayerTimes, tomorrowGridPrayerTimes]);
+    const nextTime = targetSet.find(p => timeToMin(p.time) > currentMinutesTotal);
+    if (nextTime) return nextTime.id;
+    const tomorrowSet = activePage === 0 ? tomorrowMainPrayerTimes : tomorrowFlattenedGridTimes;
+    return tomorrowSet[0]?.id || targetSet[0]?.id || 'imsak';
+  }, [activePage, mainPrayerTimes, flattenedGridTimes, tomorrowMainPrayerTimes, tomorrowFlattenedGridTimes]);
 
   const dateHeaderInfo = useMemo(() => {
+    const now = new Date();
     const dayNum = now.getDate().toString().padStart(2, '0');
     const monthName = MONTH_NAMES_TR[now.getMonth()];
     const yearNum = now.getFullYear();
@@ -303,21 +191,21 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
     const hicriStr = todayVakit?.['@attributes']?.hicri || 'RECEB 1447';
     const hicriParts = hicriStr.trim().split(/\s+/);
     const hicriDay = hicriParts[0] || '';
-    const hicriMonthYear = hicriParts.slice(1).join(' ') || 'RECEB 1447';
+    const hicriSub = hicriParts.slice(1).join(' ') || 'RECEB 1447';
 
     return {
       gregorianDay: dayNum,
       gregorianSub: `${monthName} ${yearNum}`,
       dayName,
       hicriDay,
-      hicriSub: hicriMonthYear,
+      hicriSub,
     };
-  }, [now, todayVakit]);
+  }, [todayVakit]);
 
   const toggleReminder = async (id: string) => {
     const hasPermission = await notificationService.requestPermissions();
     if (!hasPermission) {
-      alert('Bildirim gönderebilmek için bildirim izni vermeniz gerekmektedir.');
+      Alert.alert('İzin Gerekli', 'Bildirim gönderebilmek için bildirim izni vermeniz gerekmektedir.');
     }
     setReminders(prev => ({
       ...prev,
@@ -406,10 +294,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchPrayerTimes(true);
-              }}
+              onRefresh={onRefresh}
               tintColor={COLORS.primary}
             />
           }
@@ -440,7 +325,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
             </View>
           </View>
 
-          {/* Loading Indicator for API */}
+          {/* Loading Indicator */}
           {loading && (
             <View style={styles.loadingBanner}>
               <ActivityIndicator size="small" color={COLORS.primary} />
@@ -450,7 +335,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
             </View>
           )}
 
-          {/* Günün Olayı Card (if available from API) */}
+          {/* Günün Olayı Card */}
           {calendarDetail.gununOlayi ? (
             <View style={[styles.quoteCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
               <View style={styles.quoteHeader}>
@@ -483,7 +368,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
             )}
           </View>
 
-          {/* Takvim Arka Yüzü Card (if available from API) */}
+          {/* Takvim Arka Yüzü Card */}
           {calendarDetail.arkayuzYazi ? (
             <View style={[styles.quoteCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
               <View style={styles.quoteHeader}>
@@ -500,113 +385,17 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
             </View>
           ) : null}
 
-          {/* 6 Main Prayer Times List */}
-          <View style={[styles.prayerListCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            {mainPrayerTimes.map((prayer, index) => {
-              const isActive = prayer.id === activePrayerId;
-              const isUpcoming = prayer.id === countdownInfo.id && activePage === 0;
-              const reminder = reminders[prayer.id];
-
-              return (
-                <View
-                  key={prayer.id}
-                  style={[
-                    styles.prayerRow,
-                    index < mainPrayerTimes.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder },
-                    isUpcoming
-                      ? styles.upcomingPrayerRow
-                      : isActive
-                      ? { backgroundColor: isDarkMode ? 'rgba(160, 24, 38, 0.15)' : 'rgba(160, 24, 38, 0.05)' }
-                      : null,
-                  ]}
-                >
-                  <View style={styles.prayerRowLeft}>
-                    <View
-                      style={[
-                        styles.prayerIconBox,
-                        isUpcoming
-                          ? styles.upcomingIconBox
-                          : { backgroundColor: isDarkMode ? '#1a1a1a' : '#f3f4f6' },
-                      ]}
-                    >
-                      {getPrayerIcon(
-                        prayer.id,
-                        18,
-                        isUpcoming ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary
-                      )}
-                    </View>
-
-                    <View style={styles.prayerInfoCol}>
-                      <View style={styles.prayerTitleRow}>
-                        <Text
-                          style={[
-                            styles.prayerName,
-                            {
-                              color: isUpcoming
-                                ? '#ffffff'
-                                : isActive
-                                ? isDarkMode
-                                  ? COLORS.accentRed
-                                  : COLORS.primary
-                                : theme.textPrimary,
-                            },
-                          ]}
-                        >
-                          {prayer.name}
-                        </Text>
-                        {isUpcoming && (
-                          <View style={styles.upcomingBadge}>
-                            <Text style={styles.upcomingBadgeText}>SIRADAKİ</Text>
-                          </View>
-                        )}
-                      </View>
-                      {reminder?.enabled && globalRemindersEnabled && (
-                        <Text
-                          style={[
-                            styles.reminderOffsetSubText,
-                            { color: isUpcoming ? 'rgba(255,255,255,0.7)' : theme.textMuted },
-                          ]}
-                        >
-                          {reminder.offset === 0 ? 'Vaktinde' : `${reminder.offset} dk. önce`}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.prayerRowRight}>
-                    <Text
-                      style={[
-                        styles.prayerTimeText,
-                        {
-                          color: isUpcoming
-                            ? '#ffffff'
-                            : isActive
-                            ? isDarkMode
-                              ? COLORS.accentRed
-                              : COLORS.primary
-                            : theme.textPrimary,
-                        },
-                      ]}
-                    >
-                      {prayer.time}
-                    </Text>
-
-                    <TouchableOpacity
-                      onPress={() => setShowSettings(prayer.id)}
-                      style={styles.bellButton}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      {reminder?.enabled && globalRemindersEnabled ? (
-                        <Bell size={18} color={isUpcoming ? '#ffffff' : COLORS.primary} />
-                      ) : (
-                        <BellOff size={18} color={isUpcoming ? 'rgba(255,255,255,0.5)' : theme.textMuted} />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+          {/* Main 6 Prayer List Card */}
+          <PrayerListCard
+            mainPrayerTimes={mainPrayerTimes}
+            activePrayerId={activePrayerId}
+            upcomingId={countdownUpcomingId}
+            activePage={activePage}
+            reminders={reminders}
+            globalRemindersEnabled={globalRemindersEnabled}
+            setShowSettings={setShowSettings}
+            getPrayerIcon={getPrayerIcon}
+          />
         </ScrollView>
 
         {/* PAGE 2: DETAILED 18-PERIOD GRID VIEW */}
@@ -617,10 +406,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchPrayerTimes(true);
-              }}
+              onRefresh={onRefresh}
               tintColor={COLORS.primary}
             />
           }
@@ -649,123 +435,27 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
             </View>
           </View>
 
-          {/* 2-Column Grid */}
-          <View style={[styles.gridContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            {gridPrayerTimes.map((row, rowIndex) => (
-              <View key={`row-${rowIndex}`} style={styles.gridRow}>
-                {row.map((item, colIndex) => {
-                  const isUpcoming = item.id === countdownInfo.id && activePage === 1;
-                  const isActive = item.id === activePrayerId;
-
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      activeOpacity={0.8}
-                      onPress={() => setShowSettings(item.id)}
-                      style={[
-                        styles.gridCell,
-                        colIndex === 0 && { borderRightWidth: 1, borderRightColor: theme.cardBorder },
-                        rowIndex < gridPrayerTimes.length - 1 && {
-                          borderBottomWidth: 1,
-                          borderBottomColor: theme.cardBorder,
-                        },
-                        isUpcoming
-                          ? styles.upcomingGridCell
-                          : isActive
-                          ? { backgroundColor: isDarkMode ? 'rgba(160, 24, 38, 0.15)' : 'rgba(160, 24, 38, 0.05)' }
-                          : null,
-                      ]}
-                    >
-                      <View style={styles.gridCellHeader}>
-                        <View style={styles.gridCellTitleRow}>
-                          {getPrayerIcon(
-                            item.id,
-                            14,
-                            isUpcoming ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary
-                          )}
-                          <Text
-                            style={[
-                              styles.gridCellName,
-                              {
-                                color: isUpcoming
-                                  ? 'rgba(255,255,255,0.85)'
-                                  : isActive
-                                  ? isDarkMode
-                                    ? COLORS.accentRed
-                                    : COLORS.primary
-                                  : theme.textSecondary,
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {item.name}
-                          </Text>
-                        </View>
-                        {isUpcoming && <Zap size={12} color="#ffffff" />}
-                      </View>
-
-                      {item.sub ? (
-                        <Text
-                          style={[
-                            styles.gridCellSub,
-                            { color: isUpcoming ? 'rgba(255,255,255,0.6)' : theme.textMuted },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.sub}
-                        </Text>
-                      ) : null}
-
-                      <Text
-                        style={[
-                          styles.gridCellTime,
-                          {
-                            color: isUpcoming ? '#ffffff' : theme.textPrimary,
-                          },
-                        ]}
-                      >
-                        {item.time}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ))}
-          </View>
+          {/* 18-Period Grid Card */}
+          <GridPrayerCard
+            gridPrayerTimes={gridPrayerTimes}
+            upcomingId={countdownUpcomingId}
+            activePage={activePage}
+            activePrayerId={activePrayerId}
+            setShowSettings={setShowSettings}
+            getPrayerIcon={getPrayerIcon}
+          />
         </ScrollView>
       </ScrollView>
 
-      {/* Dynamic Floating Countdown Card */}
-      <View style={styles.floatingCountdownContainer}>
-        <View style={[styles.floatingCountdownBox, { backgroundColor: isDarkMode ? '#1a1a1a' : '#111827' }]}>
-          <View style={styles.floatingCountdownContent}>
-            <View style={styles.floatingCountdownLeft}>
-              <View style={styles.floatingIconBadge}>
-                {getPrayerIcon(countdownInfo.id, 16, '#ffffff')}
-              </View>
-              <View>
-                <Text style={styles.floatingSubLabel}>
-                  {activePage === 0 ? 'SIRADAKİ VAKİT' : 'SIRADAKİ DETAY'}
-                </Text>
-                <Text style={styles.floatingPrayerName}>{countdownInfo.name}</Text>
-              </View>
-            </View>
-
-            <View style={styles.floatingTimerDigits}>
-              <Text style={styles.floatingTimerText}>{countdownInfo.h}</Text>
-              <Text style={styles.floatingTimerColon}>:</Text>
-              <Text style={styles.floatingTimerText}>{countdownInfo.m}</Text>
-              <Text style={styles.floatingTimerColon}>:</Text>
-              <Text style={[styles.floatingTimerText, { color: COLORS.accentRed }]}>{countdownInfo.s}</Text>
-            </View>
-          </View>
-
-          {/* Progress Bar */}
-          <View style={styles.progressBarBackground}>
-            <View style={[styles.progressBarFill, { width: `${countdownInfo.progress}%` }]} />
-          </View>
-        </View>
-      </View>
+      {/* Dynamic Floating Countdown Widget */}
+      <CountdownBanner
+        activePage={activePage}
+        mainPrayerTimes={mainPrayerTimes}
+        flattenedGridTimes={flattenedGridTimes}
+        tomorrowMainPrayerTimes={tomorrowMainPrayerTimes}
+        tomorrowGridTimes={tomorrowFlattenedGridTimes}
+        getPrayerIcon={getPrayerIcon}
+      />
 
       {/* Page Indicator Dots */}
       <View style={styles.pageDotsContainer}>
@@ -780,89 +470,13 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity, isDarkMode }) =
       </View>
 
       {/* Notification Settings Modal */}
-      <Modal
-        visible={!!showSettings}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowSettings(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: theme.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Bildirim Ayarları</Text>
-              <TouchableOpacity
-                onPress={() => setShowSettings(null)}
-                style={[styles.modalCloseBtn, { backgroundColor: isDarkMode ? '#222' : '#f3f4f6' }]}
-              >
-                <X size={20} color={theme.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {showSettings && (
-              <View style={styles.modalBody}>
-                {/* Toggle Switch */}
-                <View style={[styles.modalOptionRow, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f9fafb' }]}>
-                  <Text style={[styles.modalOptionLabel, { color: theme.textPrimary }]}>Bildirim Durumu</Text>
-                  <TouchableOpacity
-                    onPress={() => toggleReminder(showSettings)}
-                    style={[
-                      styles.toggleTrack,
-                      {
-                        backgroundColor: reminders[showSettings]?.enabled ? COLORS.primary : '#d1d5db',
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.toggleThumb,
-                        reminders[showSettings]?.enabled ? styles.toggleThumbActive : styles.toggleThumbInactive,
-                      ]}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Offset Options */}
-                <View style={styles.offsetSection}>
-                  <Text style={[styles.offsetSectionTitle, { color: theme.textMuted }]}>SÜRE SEÇİMİ</Text>
-                  <View style={styles.offsetGrid}>
-                    {[0, 5, 10, 15, 30].map(off => {
-                      const isSelected = reminders[showSettings]?.offset === off;
-                      return (
-                        <TouchableOpacity
-                          key={off}
-                          onPress={() => updateOffset(showSettings, off)}
-                          style={[
-                            styles.offsetButton,
-                            isSelected
-                              ? { backgroundColor: COLORS.primary, borderColor: COLORS.primary }
-                              : { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.offsetButtonText,
-                              { color: isSelected ? '#ffffff' : theme.textSecondary },
-                            ]}
-                          >
-                            {off === 0 ? 'Vakit' : `${off}dk`}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setShowSettings(null)}
-                  style={[styles.modalSaveButton, { backgroundColor: COLORS.primary }]}
-                >
-                  <Text style={styles.modalSaveButtonText}>KAYDET</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+      <ReminderModal
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        reminders={reminders}
+        toggleReminder={toggleReminder}
+        updateOffset={updateOffset}
+      />
     </View>
   );
 };
@@ -1001,218 +615,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     letterSpacing: 1,
   },
-  prayerListCard: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  prayerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  upcomingPrayerRow: {
-    backgroundColor: COLORS.primary,
-  },
-  prayerRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  prayerIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  upcomingIconBox: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  prayerInfoCol: {
-    justifyContent: 'center',
-  },
-  prayerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  prayerName: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  upcomingBadge: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-  upcomingBadgeText: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: COLORS.primary,
-    letterSpacing: 1,
-  },
-  reminderOffsetSubText: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  prayerRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  prayerTimeText: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    marginRight: 12,
-    ...Platform.select({
-      ios: { fontFamily: 'Menlo' },
-      android: { fontFamily: 'monospace' },
-    }),
-  },
-  bellButton: {
-    padding: 6,
-  },
-  gridContainer: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  gridRow: {
-    flexDirection: 'row',
-  },
-  gridCell: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
-  upcomingGridCell: {
-    backgroundColor: COLORS.primary,
-  },
-  gridCellHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  gridCellTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  gridCellName: {
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  gridCellSub: {
-    fontSize: 9,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  gridCellTime: {
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  floatingCountdownContainer: {
-    position: 'absolute',
-    bottom: 24,
-    left: 16,
-    right: 16,
-    zIndex: 40,
-  },
-  floatingCountdownBox: {
-    borderRadius: 20,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  floatingCountdownContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  floatingCountdownLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  floatingIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  floatingSubLabel: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: 'rgba(255,255,255,0.6)',
-    letterSpacing: 1,
-  },
-  floatingPrayerName: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  floatingTimerDigits: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  floatingTimerText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#ffffff',
-    ...Platform.select({
-      ios: { fontFamily: 'Menlo' },
-      android: { fontFamily: 'monospace' },
-    }),
-  },
-  floatingTimerColon: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: 'rgba(255,255,255,0.3)',
-    marginHorizontal: 2,
-  },
-  progressBarBackground: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: COLORS.accentRed,
-    borderRadius: 2,
-  },
   pageDotsContainer: {
     position: 'absolute',
     bottom: 8,
@@ -1231,100 +633,5 @@ const styles = StyleSheet.create({
   activeDot: {
     width: 20,
     backgroundColor: COLORS.primary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  modalCloseBtn: {
-    padding: 8,
-    borderRadius: 20,
-  },
-  modalBody: {
-    gap: 20,
-  },
-  modalOptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 16,
-  },
-  modalOptionLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  toggleTrack: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-  },
-  toggleThumbActive: {
-    alignSelf: 'flex-end',
-  },
-  toggleThumbInactive: {
-    alignSelf: 'flex-start',
-  },
-  offsetSection: {
-    gap: 8,
-  },
-  offsetSectionTitle: {
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1.5,
-  },
-  offsetGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  offsetButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  offsetButtonText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  modalSaveButton: {
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  modalSaveButtonText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 1,
   },
 });

@@ -16,15 +16,16 @@ import {
 } from 'lucide-react-native';
 import { ImportantDay } from '../types';
 import { COLORS, MOCK_IMPORTANT_DAYS } from '../constants';
+import { useTheme } from '../context/ThemeContext';
 
 type CalendarView = 'gregorian' | 'hijri';
 
 interface GunlerProps {
-  isDarkMode: boolean;
+  isDarkMode?: boolean;
 }
 
-export const Gunler: React.FC<GunlerProps> = ({ isDarkMode }) => {
-  const theme = isDarkMode ? COLORS.dark : COLORS.light;
+export const Gunler: React.FC<GunlerProps> = () => {
+  const { isDarkMode, theme } = useTheme();
   const [viewType, setViewType] = useState<CalendarView>('gregorian');
   const [selectedYear, setSelectedYear] = useState(2026);
   const [importantDays, setImportantDays] = useState<ImportantDay[]>(MOCK_IMPORTANT_DAYS);
@@ -72,7 +73,6 @@ export const Gunler: React.FC<GunlerProps> = ({ isDarkMode }) => {
       }
     }
 
-    // Default static holidays if AI offline or fallback
     if (year === 2026 || year === 1447) {
       setImportantDays(MOCK_IMPORTANT_DAYS);
     } else {

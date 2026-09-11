@@ -23,6 +23,9 @@ const PRAYER_DISPLAY_NAMES: Record<string, string> = {
   yatsi: 'Yatsı',
 };
 
+// Maximum days to schedule ahead (7 days * 6 prayers = max 42 notifications, under iOS limit of 64)
+const MAX_SCHEDULE_DAYS = 7;
+
 export const notificationService = {
   /**
    * Requests push/local notification permissions
@@ -93,8 +96,8 @@ export const notificationService = {
     let scheduledCount = 0;
     const now = new Date();
 
-    // Iterate through available days (e.g. next 7 days)
-    for (const vakit of vakitList.slice(0, 14)) {
+    // Iterate through available days (next 7 days max to respect iOS 64-notification cap)
+    for (const vakit of vakitList.slice(0, MAX_SCHEDULE_DAYS)) {
       const dateStr = vakit['@attributes']?.tarih; // "YYYY-MM-DD"
       if (!dateStr) continue;
 
