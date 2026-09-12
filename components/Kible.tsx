@@ -9,6 +9,7 @@ import {
   Animated,
   Platform,
   Dimensions,
+  Vibration,
 } from 'react-native';
 import Svg, { Circle, Line, Text as SvgText, G, Path, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Location from 'expo-location';
@@ -26,11 +27,14 @@ import {
   Navigation,
   LocateFixed,
   Sliders,
+  Sun,
+  Moon,
 } from 'lucide-react-native';
 import { City } from '../types';
 import { COLORS } from '../constants';
 import { useTheme } from '../context/ThemeContext';
 import { useCity } from '../context/CityContext';
+import { storageService } from '../services/storageService';
 import { usePrayerTimes } from '../hooks/usePrayerTimes';
 import { useCompassSensor } from '../hooks/useCompassSensor';
 import {
@@ -50,20 +54,36 @@ type LocationSource = 'city' | 'gps';
 type AngleReference = 'magnetic' | 'geographic';
 
 export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
-  const { isDarkMode, theme } = useTheme();
+  const { isDarkMode, theme, toggleTheme } = useTheme();
   const { currentCity: contextCity } = useCity();
   const currentCity = propCity || contextCity;
 
   const [viewMode, setViewMode] = useState<ViewMode>('compass');
   const [locationSource, setLocationSource] = useState<LocationSource>('city');
   const [angleReference, setAngleReference] = useState<AngleReference>('magnetic');
-  const [userOffset, setUserOffset] = useState<number>(0); // manual micro-offset in degrees
+  const [userOffset, setUserOffsetState] = useState<number>(0); // manual micro-offset in degrees
   const [loading, setLoading] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+
+  // Restore the saved compass calibration offset, so it isn't lost on every app restart.
+  useEffect(() => {
+    storageService.getCompassOffset().then(setUserOffsetState);
+  }, []);
+
+  const setUserOffset = useCallback((updater: number | ((prev: number) => number)) => {
+    setUserOffsetState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      storageService.setCompassOffset(next);
+      return next;
+    });
+  }, []);
 
   // Live Compass Sensor
   const {
     magHeading,
+    trueHeading,
+    isTrueHeading,
     compassAvailable,
   } = useCompassSensor(0.5);
 
@@ -90,23 +110,46 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
     }
   }, [angleReference, qiblaData.compassAngle, qiblaData.geographicAngle, userOffset]);
 
-  // Target needle angle relative to top of phone:
+  // Device heading normalized to TRUE north, regardless of angleReference toggle.
+  // Mixing a true-north bearing (geographicAngle) with a raw magnetic heading (magHeading) - or
+  // vice versa - silently introduces an error equal to the local magnetic declination, which
+  // shows up as the needle drifting a few degrees off to one side. Using the device's own
+  // trueHeading when available (already declination-corrected by iOS/Android for the exact GPS
+  // fix) keeps the needle consistent with namazvakti.com's true-north-oriented map in every mode.
+  const effectiveTrueHeading = useMemo(() => {
+    if (isTrueHeading) return trueHeading;
+    return (magHeading + qiblaData.magneticDeviation + 360) % 360;
+  }, [isTrueHeading, trueHeading, magHeading, qiblaData.magneticDeviation]);
+
+  // Target needle angle relative to top of phone (always computed against true-north bearing):
   const targetNeedleAngle = useMemo(() => {
-    // With magnetic heading (standard phone compass):
-    const target = (baseTargetAngle - magHeading + 360) % 360;
+    const target = (Math.round(qiblaData.geographicAngle) + userOffset - effectiveTrueHeading + 360) % 360;
     return target;
-  }, [baseTargetAngle, magHeading]);
+  }, [qiblaData.geographicAngle, userOffset, effectiveTrueHeading]);
 
-  // Compass dial rotation (outer degree ring rotates with magnetometer)
+  // Compass dial rotation (outer degree ring rotates with the device, true-north referenced)
   const dialRotation = useMemo(() => {
-    return (-magHeading + 360) % 360;
-  }, [magHeading]);
+    return (-effectiveTrueHeading + 360) % 360;
+  }, [effectiveTrueHeading]);
 
-  // Check if device is aligned with Kaaba within +/- 3 degrees
+  // Check if device is aligned with Kaaba within +/- 3.5 degrees
   const isAligned = useMemo(() => {
     const diff = Math.abs(targetNeedleAngle);
     return diff <= 3.5 || Math.abs(diff - 360) <= 3.5;
   }, [targetNeedleAngle]);
+
+  // Haptic Feedback on alignment transition (false -> true)
+  const wasAlignedRef = useRef(false);
+  useEffect(() => {
+    if (isAligned && !wasAlignedRef.current) {
+      try {
+        Vibration.vibrate(70);
+      } catch {
+        // ignore on unsupported environments
+      }
+    }
+    wasAlignedRef.current = isAligned;
+  }, [isAligned]);
 
   // Smooth animation drivers
   const animatedCompass = useRef(new Animated.Value(0)).current;
@@ -223,21 +266,34 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => calculateQibla(locationSource)}
-          disabled={loading}
-          activeOpacity={0.7}
-          style={styles.refreshButton}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <RefreshCw size={18} color="#ffffff" />
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            onPress={toggleTheme}
+            activeOpacity={0.8}
+            style={styles.headerActionBtn}
+            accessibilityLabel="Temayı Değiştir"
+          >
+            {isDarkMode ? <Sun size={17} color="#ffffff" /> : <Moon size={17} color="#ffffff" />}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => calculateQibla(locationSource)}
+            disabled={loading}
+            activeOpacity={0.7}
+            style={styles.headerActionBtn}
+            accessibilityLabel="Yenile"
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <RefreshCw size={17} color="#ffffff" />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Segmented Mode Switcher (Canlı Pusula vs Uydu Haritası) */}
+      {/* Segmented Mode Switcher (Canlı Pusula vs Uydu Haritası) - Şimdilik devre dışı bırakıldı */}
+      {/*
       <View style={[styles.modeSwitcherContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <TouchableOpacity
           activeOpacity={0.8}
@@ -281,6 +337,7 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
           </Text>
         </TouchableOpacity>
       </View>
+      */}
 
       {/* Location & Angle Mode Selectors */}
       <View style={styles.selectorsContainer}>
@@ -381,42 +438,43 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* VIEW MODE 1: INTERACTIVE THEQIBLA.PHP SATELLITE MAP */}
-        {viewMode === 'map' ? (
-          <View style={styles.mapContainer}>
-            <View style={[styles.mapCard, { height: mapHeight, borderColor: theme.cardBorder }]}>
-              {Platform.OS === 'web' ? (
-                // Web iframe render
-                // @ts-ignore
-                <iframe
-                  title="theQibla Map"
-                  srcDoc={mapHtml}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                    borderRadius: 20,
-                  }}
-                />
-              ) : (
-                // Native WebView render
-                <WebView
-                  originWhitelist={['*']}
-                  source={{ html: mapHtml }}
-                  style={styles.webView}
-                  javaScriptEnabled={true}
-                  domStorageEnabled={true}
-                  onMessage={handleMapMessage}
-                />
-              )}
-            </View>
-
-            <Text style={[styles.mapDragHint, { color: theme.textMuted }]}>
-              💡 <Text style={{ fontWeight: '700' }}>İpucu:</Text> Haritayı kaydırıp kırmızı işareti evinizin/binanızın üzerine getirdiğinizde çıkan yeşil hat, o binanın tam kıble istikâmetidir.
-            </Text>
+        {/* VIEW MODE 1: INTERACTIVE THEQIBLA.PHP SATELLITE MAP - Şimdilik devre dışı bırakıldı */}
+        {/*
+        <View style={styles.mapContainer}>
+          <View style={[styles.mapCard, { height: mapHeight, borderColor: theme.cardBorder }]}>
+            {Platform.OS === 'web' ? (
+              // Web iframe render
+              // @ts-ignore
+              <iframe
+                title="theQibla Map"
+                srcDoc={mapHtml}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  borderRadius: 20,
+                }}
+              />
+            ) : (
+              // Native WebView render
+              <WebView
+                originWhitelist={['*']}
+                source={{ html: mapHtml }}
+                style={styles.webView}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                onMessage={handleMapMessage}
+              />
+            )}
           </View>
-        ) : (
-          /* VIEW MODE 2: LIVE COMPASS SENSOR VIEW */
+
+          <Text style={[styles.mapDragHint, { color: theme.textMuted }]}>
+            💡 <Text style={{ fontWeight: '700' }}>İpucu:</Text> Haritayı kaydırıp kırmızı işareti evinizin/binanızın üzerine getirdiğinizde çıkan yeşil hat, o binanın tam kıble istikâmetidir.
+          </Text>
+        </View>
+        */}
+
+        {/* VIEW MODE 2: LIVE COMPASS SENSOR VIEW */}
           <View style={styles.compassSection}>
             {isAligned ? (
               <View style={styles.alignedBanner}>
@@ -436,7 +494,7 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
                 </Text>
                 <Text style={[styles.modelSubText, { color: theme.textMuted }]}>
                   {compassAvailable
-                    ? `Pusula Yönü: ${Math.round(magHeading)}° • Hedef Açısı: ${baseTargetAngle}°`
+                    ? `Pusula Yönü: ${Math.round(effectiveTrueHeading)}° • Hedef Açısı: ${baseTargetAngle}°`
                     : 'Pusula Sensörü Hazır Değil'}
                 </Text>
               </View>
@@ -616,47 +674,8 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
                 </G>
               </Svg>
             </View>
-
-            {/* Micro-Adjustment Stepper (±1°, ±2°) */}
-            <View style={styles.fineTuneRow}>
-              <Text style={[styles.fineTuneLabel, { color: theme.textMuted }]}>
-                İnce Ayar ({userOffset > 0 ? `+${userOffset}°` : `${userOffset}°`}):
-              </Text>
-              <View style={styles.stepperGroup}>
-                <TouchableOpacity
-                  onPress={() => setUserOffset(prev => prev - 2)}
-                  style={[styles.stepperBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                >
-                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>-2°</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setUserOffset(prev => prev - 1)}
-                  style={[styles.stepperBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                >
-                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>-1°</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setUserOffset(0)}
-                  style={[styles.stepperBtn, { backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb', borderColor: theme.cardBorder }]}
-                >
-                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>Sıfırla</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setUserOffset(prev => prev + 1)}
-                  style={[styles.stepperBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                >
-                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>+1°</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setUserOffset(prev => prev + 2)}
-                  style={[styles.stepperBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                >
-                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>+2°</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
           </View>
-        )}
+        {/* )} - Uydu haritası devre dışı olduğu için Pusula doğrudan gösteriliyor */}
 
         {/* theQibla.php AUTHENTIC INFORMATION BOARD */}
         <View style={[styles.infoBoardCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -676,9 +695,12 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
 
           {/* 1. Coğrafi Kuzey Açısı */}
           <View style={styles.boardDataRow}>
-            <Text style={[styles.boardLabel, { color: theme.textSecondary }]}>
-              • Coğrafi Kuzeyden Saat Yönünde Kıble Açısı:
-            </Text>
+            <View style={styles.rowLabelGroup}>
+              <View style={[styles.dotIndicator, { backgroundColor: '#0d9488' }]} />
+              <Text style={[styles.boardLabel, { color: theme.textSecondary }]} numberOfLines={1}>
+                Coğrafi Kuzey Açısı:
+              </Text>
+            </View>
             <Text style={styles.cografiKuzeyVal}>
               {Math.round(qiblaData.geographicAngle)}°
             </Text>
@@ -686,9 +708,12 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
 
           {/* 2. Magnetik Sapma Açısı */}
           <View style={styles.boardDataRow}>
-            <Text style={[styles.boardLabel, { color: theme.textSecondary }]}>
-              • Magnetik Sapma Açısı:
-            </Text>
+            <View style={styles.rowLabelGroup}>
+              <View style={[styles.dotIndicator, { backgroundColor: theme.textMuted }]} />
+              <Text style={[styles.boardLabel, { color: theme.textSecondary }]} numberOfLines={1}>
+                Magnetik Sapma Açısı:
+              </Text>
+            </View>
             <Text style={[styles.magSapmaVal, { color: theme.textPrimary }]}>
               {qiblaData.magneticDeviation > 0 ? '+' : ''}{Math.round(qiblaData.magneticDeviation)}°
             </Text>
@@ -696,9 +721,12 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
 
           {/* 3. Pusula Kuzey Açısı */}
           <View style={styles.boardDataRow}>
-            <Text style={[styles.boardLabel, { color: theme.textSecondary }]}>
-              • Pusula Kuzeyinden Saat Yönünde Kıble Açısı:
-            </Text>
+            <View style={styles.rowLabelGroup}>
+              <View style={[styles.dotIndicator, { backgroundColor: '#dc2626' }]} />
+              <Text style={[styles.boardLabel, { color: theme.textSecondary }]} numberOfLines={1}>
+                Pusula Kıble Açısı:
+              </Text>
+            </View>
             <Text style={styles.pusulaKuzeyVal}>
               {qiblaData.compassAngle}°
             </Text>
@@ -707,9 +735,9 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
           {/* 4. Bugünün Kıble Saati (TurkTakvim API) */}
           {todayVakit?.kible ? (
             <View style={[styles.boardDataRow, styles.kibleSaatiRow]}>
-              <View style={styles.kibleSaatiLeft}>
+              <View style={styles.rowLabelGroup}>
                 <Clock size={14} color="#d97706" />
-                <Text style={[styles.boardLabel, { color: theme.textPrimary, fontWeight: '700' }]}>
+                <Text style={[styles.boardLabel, { color: isDarkMode ? '#fbbf24' : '#b45309', fontWeight: '700' }]} numberOfLines={1}>
                   Bugünün Kıble Saati:
                 </Text>
               </View>
@@ -721,9 +749,9 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
 
           {/* 5. Kâbe-i Şerîf Uzaklığı */}
           <View style={styles.boardDataRow}>
-            <View style={styles.kibleSaatiLeft}>
+            <View style={styles.rowLabelGroup}>
               <Navigation size={14} color={theme.textMuted} />
-              <Text style={[styles.boardLabel, { color: theme.textSecondary }]}>
+              <Text style={[styles.boardLabel, { color: theme.textSecondary }]} numberOfLines={1}>
                 Kâbe-i Şerîf Uzaklığı:
               </Text>
             </View>
@@ -731,9 +759,52 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
               {qiblaData.distanceKm.toLocaleString('tr-TR')} km
             </Text>
           </View>
+
+          {/* Micro-Adjustment Stepper inside the info board */}
+          <View style={[styles.fineTuneBox, { borderTopColor: theme.cardBorder }]}>
+            <View style={styles.fineTuneHeader}>
+              <Sliders size={13} color={theme.textMuted} />
+              <Text style={[styles.fineTuneLabel, { color: theme.textMuted }]}>
+                Pusula İnce Kalibrasyonu ({userOffset > 0 ? `+${userOffset}°` : `${userOffset}°`}):
+              </Text>
+            </View>
+            <View style={styles.stepperGroup}>
+              <TouchableOpacity
+                onPress={() => setUserOffset(prev => prev - 2)}
+                style={[styles.stepperBtn, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f9fafb', borderColor: theme.cardBorder }]}
+              >
+                <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>-2°</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setUserOffset(prev => prev - 1)}
+                style={[styles.stepperBtn, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f9fafb', borderColor: theme.cardBorder }]}
+              >
+                <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>-1°</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setUserOffset(0)}
+                style={[styles.stepperBtn, { backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb', borderColor: theme.cardBorder }]}
+              >
+                <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>Sıfırla</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setUserOffset(prev => prev + 1)}
+                style={[styles.stepperBtn, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f9fafb', borderColor: theme.cardBorder }]}
+              >
+                <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>+1°</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setUserOffset(prev => prev + 2)}
+                style={[styles.stepperBtn, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f9fafb', borderColor: theme.cardBorder }]}
+              >
+                <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>+2°</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
-        {/* COLLAPSIBLE EXPLANATION (Haritanın Açıklaması - theQibla.php) */}
+        {/* COLLAPSIBLE EXPLANATION (Haritanın Açıklaması - theQibla.php) - Şimdilik devre dışı bırakıldı */}
+        {/*
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setShowExplanation(!showExplanation)}
@@ -763,6 +834,7 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
             </Text>
           </View>
         )}
+        */}
 
         <Text style={[styles.footnoteText, { color: theme.textMuted }]}>
           Türk Takvimi rasat ve hesaplama metotları baz alınmıştır. (namazvakti.com/theQibla.php)
@@ -809,11 +881,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginTop: 2,
   },
-  refreshButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerActionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -976,10 +1053,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 20,
   },
-  fineTuneRow: {
+  fineTuneBox: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
     alignItems: 'center',
-    marginTop: 2,
-    marginBottom: 8,
+    gap: 8,
+  },
+  fineTuneHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   fineTuneLabel: {
@@ -1045,46 +1128,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  kibleSaatiRow: {
+    backgroundColor: 'rgba(217, 119, 6, 0.08)',
+    marginVertical: 2,
+  },
+  rowLabelGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 12,
   },
   boardLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
+  },
+  dotIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   cografiKuzeyVal: {
     color: '#0d9488',
     fontWeight: '900',
     fontSize: 15,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   magSapmaVal: {
     fontWeight: '800',
     fontSize: 14,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   pusulaKuzeyVal: {
     color: '#dc2626',
     fontWeight: '900',
     fontSize: 15,
-  },
-  kibleSaatiRow: {
-    backgroundColor: 'rgba(217, 119, 6, 0.08)',
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    marginVertical: 3,
-  },
-  kibleSaatiLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   kibleSaatiVal: {
     color: '#d97706',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 15,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   distanceVal: {
     fontWeight: '800',
     fontSize: 13,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   explanationToggle: {
     width: '100%',

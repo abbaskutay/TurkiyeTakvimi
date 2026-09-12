@@ -21,6 +21,8 @@ import {
   Globe,
   Edit2,
   ChevronRight,
+  Sun,
+  Moon,
 } from 'lucide-react-native';
 import { City } from '../types';
 import { COLORS } from '../constants';
@@ -32,13 +34,15 @@ interface SehirlerProps {
   cities?: City[];
   onUpdateCities?: (newCities: City[]) => void;
   isDarkMode?: boolean;
+  onCitySelected?: () => void;
 }
 
 export const Sehirler: React.FC<SehirlerProps> = ({
   cities: propCities,
   onUpdateCities: propOnUpdateCities,
+  onCitySelected,
 }) => {
-  const { isDarkMode, theme } = useTheme();
+  const { isDarkMode, theme, toggleTheme } = useTheme();
   const { cities: contextCities, updateCities: contextUpdateCities, selectCity } = useCity();
 
   const cities = propCities || contextCities;
@@ -123,6 +127,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
     setSearchResults([]);
     setIsSearching(false);
     setIsEditing(false);
+    onCitySelected?.();
   };
 
   const removeCity = (id: string) => {
@@ -201,6 +206,14 @@ export const Sehirler: React.FC<SehirlerProps> = ({
               <Text style={styles.headerSubtitle}>TÜRK TAKVİMİ ŞEHİR ARAMA</Text>
             </View>
             <View style={styles.headerActionBtns}>
+              <TouchableOpacity
+                onPress={toggleTheme}
+                activeOpacity={0.8}
+                style={[styles.headerBtn, styles.headerBtnInactive]}
+                accessibilityLabel="Temayı Değiştir"
+              >
+                {isDarkMode ? <Sun size={20} color="#ffffff" /> : <Moon size={20} color="#ffffff" />}
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setIsEditing(!isEditing)}
                 style={[
@@ -328,6 +341,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
             onPress={() => {
               if (!isEditing) {
                 selectCity(item.id);
+                onCitySelected?.();
               }
             }}
             style={[

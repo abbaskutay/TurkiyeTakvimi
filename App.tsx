@@ -26,15 +26,34 @@ const MainScreen: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case AppTab.VAKITLER:
-        return <Vakitler currentCity={currentCity} isDarkMode={isDarkMode} />;
+        return (
+          <Vakitler
+            currentCity={currentCity}
+            isDarkMode={isDarkMode}
+            onNavigateToSehirler={() => setActiveTab(AppTab.SEHIRLER)}
+          />
+        );
       case AppTab.SEHIRLER:
-        return <Sehirler cities={cities} onUpdateCities={updateCities} isDarkMode={isDarkMode} />;
+        return (
+          <Sehirler
+            cities={cities}
+            onUpdateCities={updateCities}
+            isDarkMode={isDarkMode}
+            onCitySelected={() => setActiveTab(AppTab.VAKITLER)}
+          />
+        );
       case AppTab.KIBLE:
         return <Kible currentCity={currentCity} isDarkMode={isDarkMode} />;
       case AppTab.GUNLER:
         return <Gunler isDarkMode={isDarkMode} />;
       default:
-        return <Vakitler currentCity={currentCity} isDarkMode={isDarkMode} />;
+        return (
+          <Vakitler
+            currentCity={currentCity}
+            isDarkMode={isDarkMode}
+            onNavigateToSehirler={() => setActiveTab(AppTab.SEHIRLER)}
+          />
+        );
     }
   };
 
@@ -48,21 +67,6 @@ const MainScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar style={isDarkMode ? 'light' : 'dark'} />
-
-      {/* Floating Dark Mode Toggle Button */}
-      <TouchableOpacity
-        onPress={toggleTheme}
-        activeOpacity={0.8}
-        style={[
-          styles.themeToggleBtn,
-          {
-            top: insets.top + (Platform.OS === 'ios' ? 8 : 12),
-            backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)',
-          },
-        ]}
-      >
-        {isDarkMode ? <Sun size={18} color="#ffffff" /> : <Moon size={18} color="#ffffff" />}
-      </TouchableOpacity>
 
       {/* Main Content Area */}
       <View style={[styles.contentArea, { paddingTop: insets.top }]}>
@@ -90,10 +94,12 @@ const MainScreen: React.FC = () => {
               onPress={() => setActiveTab(tab.id)}
               style={styles.tabButton}
             >
-              <Icon
-                size={22}
-                color={isActive ? theme.activeTab : theme.inactiveTab}
-              />
+              <View style={[styles.iconWrapper, isActive && { backgroundColor: isDarkMode ? 'rgba(255,77,94,0.12)' : 'rgba(160,24,38,0.08)' }]}>
+                <Icon
+                  size={20}
+                  color={isActive ? theme.activeTab : theme.inactiveTab}
+                />
+              </View>
               <Text
                 style={[
                   styles.tabLabel,
@@ -132,22 +138,12 @@ const styles = StyleSheet.create({
   contentArea: {
     flex: 1,
   },
-  themeToggleBtn: {
-    position: 'absolute',
-    right: 14,
-    zIndex: 99,
-    width: 34,
-    height: 38,
-    borderRadius: 17,
+  iconWrapper: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
   },
   tabBar: {
     flexDirection: 'row',

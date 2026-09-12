@@ -14,6 +14,7 @@ interface PrayerListCardProps {
   globalRemindersEnabled: boolean;
   setShowSettings: (id: string) => void;
   getPrayerIcon: (id: string, size?: number, color?: string) => ReactNode;
+  onToggleAllReminders?: () => void;
 }
 
 export const PrayerListCard: React.FC<PrayerListCardProps> = ({
@@ -25,11 +26,36 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
   globalRemindersEnabled,
   setShowSettings,
   getPrayerIcon,
+  onToggleAllReminders,
 }) => {
   const { isDarkMode, theme } = useTheme();
+  const allRemindersActive = mainPrayerTimes.every(p => reminders[p.id]?.enabled);
 
   return (
     <View style={[styles.prayerListCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      {/* Top Header Row with Bulk Reminder Action */}
+      <View style={[styles.cardTopHeader, { borderBottomColor: theme.cardBorder }]}>
+        <Text style={[styles.cardHeaderTitle, { color: theme.textMuted }]}>
+          GÜNLÜK VAKİTLER
+        </Text>
+        {onToggleAllReminders && (
+          <TouchableOpacity
+            onPress={onToggleAllReminders}
+            style={styles.toggleAllBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {allRemindersActive ? (
+              <BellOff size={13} color={isDarkMode ? COLORS.accentRed : COLORS.primary} />
+            ) : (
+              <Bell size={13} color={isDarkMode ? COLORS.accentRed : COLORS.primary} />
+            )}
+            <Text style={[styles.toggleAllText, { color: isDarkMode ? COLORS.accentRed : COLORS.primary }]}>
+              {allRemindersActive ? 'Tümünü Kapat' : 'Tümünü Aç (15dk)'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {mainPrayerTimes.map((prayer, index) => {
         const isActive = prayer.id === activePrayerId;
         const isUpcoming = prayer.id === upcomingId && activePage === 0;
@@ -59,7 +85,7 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
               >
                 {getPrayerIcon(
                   prayer.id,
-                  18,
+                  20,
                   isUpcoming ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary
                 )}
               </View>
@@ -125,9 +151,9 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 {reminder?.enabled && globalRemindersEnabled ? (
-                  <Bell size={18} color={isUpcoming ? '#ffffff' : COLORS.primary} />
+                  <Bell size={19} color={isUpcoming ? '#ffffff' : COLORS.primary} />
                 ) : (
-                  <BellOff size={18} color={isUpcoming ? 'rgba(255,255,255,0.5)' : theme.textMuted} />
+                  <BellOff size={19} color={isUpcoming ? 'rgba(255,255,255,0.5)' : theme.textMuted} />
                 )}
               </TouchableOpacity>
             </View>
@@ -141,21 +167,48 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
 const styles = StyleSheet.create({
   prayerListCard: {
     marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 24,
+    marginTop: 10,
+    borderRadius: 22,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardTopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  cardHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  toggleAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(160, 24, 38, 0.06)',
+  },
+  toggleAllText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   prayerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
   },
   upcomingPrayerRow: {
@@ -184,7 +237,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   prayerName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
   },
   upcomingBadge: {
@@ -195,10 +248,10 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   upcomingBadgeText: {
-    fontSize: 8,
+    fontSize: 8.5,
     fontWeight: '900',
     color: COLORS.primary,
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   reminderOffsetSubText: {
     fontSize: 10,
@@ -210,10 +263,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   prayerTimeText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
     letterSpacing: -0.5,
     marginRight: 12,
+    fontVariant: ['tabular-nums'],
     ...Platform.select({
       ios: { fontFamily: 'Menlo' },
       android: { fontFamily: 'monospace' },

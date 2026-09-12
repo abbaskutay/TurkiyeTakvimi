@@ -7,6 +7,7 @@ const KEYS = {
   SAVED_CITIES: 'ezan_saved_cities',
   PRAYER_REMINDERS: 'prayer_reminders_v3',
   GLOBAL_REMINDERS_ENABLED: 'global_reminders_enabled',
+  COMPASS_OFFSET: 'compass_offset_v1',
   VAKIT_CACHE_PREFIX: 'vakit_response_v2_',
   CALENDAR_DAY_CACHE_PREFIX: 'calendar_day_v2_',
   IMPORTANT_DAYS_CACHE_PREFIX: 'important_days_v2_',
@@ -151,6 +152,28 @@ export const storageService = {
       await AsyncStorage.setItem(KEYS.GLOBAL_REMINDERS_ENABLED, JSON.stringify(enabled));
     } catch (e) {
       console.error('storageService.setGlobalRemindersEnabled error:', e);
+    }
+  },
+
+  /**
+   * Manual Kıble compass calibration offset (degrees), set via the
+   * "Pusula İnce Kalibrasyonu" stepper.
+   */
+  async getCompassOffset(): Promise<number> {
+    try {
+      const val = await AsyncStorage.getItem(KEYS.COMPASS_OFFSET);
+      return val !== null ? JSON.parse(val) : 0;
+    } catch (e) {
+      console.error('storageService.getCompassOffset error:', e);
+      return 0;
+    }
+  },
+
+  async setCompassOffset(offset: number): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.COMPASS_OFFSET, JSON.stringify(offset));
+    } catch (e) {
+      console.error('storageService.setCompassOffset error:', e);
     }
   },
 

@@ -6,8 +6,9 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
-import { MoonStar } from 'lucide-react-native';
+import { MoonStar, Sun, Moon } from 'lucide-react-native';
 import { ImportantDay } from '../types';
 import { COLORS, MOCK_IMPORTANT_DAYS, mapCalendarToImportantDays } from '../constants';
 import { turkTakvimApi } from '../services/turkTakvimApi';
@@ -19,7 +20,7 @@ interface GunlerProps {
 }
 
 export const Gunler: React.FC<GunlerProps> = () => {
-  const { isDarkMode, theme } = useTheme();
+  const { isDarkMode, theme, toggleTheme } = useTheme();
   const currentYear = new Date().getFullYear();
   const [importantDays, setImportantDays] = useState<ImportantDay[]>(MOCK_IMPORTANT_DAYS);
   const [loading, setLoading] = useState(false);
@@ -72,8 +73,20 @@ export const Gunler: React.FC<GunlerProps> = () => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header Banner */}
       <View style={[styles.headerBanner, { backgroundColor: theme.headerBg }]}>
-        <Text style={styles.headerTitle}>MÜBAREK GÜNLER</Text>
-        <Text style={styles.headerSubtitle}>DİNİ TAKVİM</Text>
+        <View style={styles.headerTopRow}>
+          <View>
+            <Text style={styles.headerTitle}>MÜBAREK GÜNLER</Text>
+            <Text style={styles.headerSubtitle}>DİNİ TAKVİM</Text>
+          </View>
+          <TouchableOpacity
+            onPress={toggleTheme}
+            activeOpacity={0.8}
+            style={styles.headerThemeBtn}
+            accessibilityLabel="Temayı Değiştir"
+          >
+            {isDarkMode ? <Sun size={17} color="#ffffff" /> : <Moon size={17} color="#ffffff" />}
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.yearCenterCol}>
           <Text style={styles.yearBigText}>{currentYear}</Text>
@@ -149,8 +162,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerBanner: {
-    paddingTop: 20,
-    paddingBottom: 24,
+    paddingTop: 16,
+    paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
@@ -160,6 +173,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 6,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
+  },
+  headerThemeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
