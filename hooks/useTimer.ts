@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PrayerTime, DetailedPrayerTime } from '../types';
+import { timeToMinutes } from '../utils/dateUtils';
 
 export interface CountdownInfo {
   name: string;
@@ -8,12 +9,6 @@ export interface CountdownInfo {
   m: string;
   s: string;
   progress: number;
-}
-
-function timeToMinutes(timeStr: string): number {
-  if (!timeStr) return 0;
-  const [h, m] = timeStr.split(':').map(Number);
-  return h * 60 + m;
 }
 
 /**

@@ -1,13 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { turkTakvimApi, ApiVakitResponse, ApiVakitItem, ApiCityInfo, extractApiText } from '../services/turkTakvimApi';
 import { storageService } from '../services/storageService';
-
-function getLocalDateString(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { getLocalDateString } from '../utils/dateUtils';
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));

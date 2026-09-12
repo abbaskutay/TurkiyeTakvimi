@@ -12,6 +12,7 @@ import { Clock, Globe, Compass, Calendar, Sun, Moon } from 'lucide-react-native'
 import { AppTab } from './types';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { CityProvider, useCity } from './context/CityContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import Vakitler from './components/Vakitler';
 import Sehirler from './components/Sehirler';
 import Kible from './components/Kible';
@@ -121,13 +122,15 @@ const MainScreen: React.FC = () => {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <CityProvider>
-          <MainScreen />
-        </CityProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <CityProvider>
+            <MainScreen />
+          </CityProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 
