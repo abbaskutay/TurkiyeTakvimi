@@ -1,5 +1,5 @@
 {
-  "name": "Ezan Vakti - Prayer Times",
+  "name": "Türkiye Takvimi - Prayer Times",
   "description": "A comprehensive prayer times application featuring Qibla compass, city management, and religious holidays tracker, inspired by classic Turkish prayer apps.",
   "requestFramePermissions": [
     "geolocation"

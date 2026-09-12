@@ -301,7 +301,7 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
         />
 
         <Text style={[styles.footnoteText, { color: theme.textMuted }]}>
-          Türk Takvimi rasat ve hesaplama metotları baz alınmıştır. (namazvakti.com/theQibla.php)
+          Türkiye Takvimi rasat ve hesaplama metotları baz alınmıştır. (namazvakti.com/theQibla.php)
         </Text>
       </ScrollView>
     </View>

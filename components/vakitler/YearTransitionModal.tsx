@@ -173,7 +173,7 @@ export const YearTransitionModal: React.FC<YearTransitionModalProps> = ({
                 >
                   {targetYear} Yıllık Namaz Vakitleri
                 </Text>
-                <Text style={styles.stepSub}>Türk Takvimi resmi vakit tablosu</Text>
+                <Text style={styles.stepSub}>Türkiye Takvimi resmi vakit tablosu</Text>
               </View>
               {step1Done ? (
                 <CheckCircle2 size={18} color="#16a34a" />

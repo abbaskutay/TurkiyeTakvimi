@@ -367,7 +367,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
               <ChevronDown size={18} color="#ffffff" style={styles.cityChevron} />
             </View>
             <Text style={styles.districtSubText} numberOfLines={1}>
-              {currentCity.district ? `${currentCity.district} • Türk Takvimi` : 'TÜRK TAKVİMİ VAKİTLERİ'}
+              {currentCity.district ? `${currentCity.district} • Türkiye Takvimi` : 'TÜRKİYE TAKVİMİ VAKİTLERİ'}
             </Text>
           </TouchableOpacity>
 
@@ -427,7 +427,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
               { color: activePage === 1 ? '#ffffff' : theme.textSecondary },
             ]}
           >
-            18 Vakit / Detaylı
+            18 Vakit
           </Text>
         </TouchableOpacity>
       </View>
@@ -459,7 +459,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
             <View style={styles.loadingBanner}>
               <ActivityIndicator size="small" color={COLORS.primary} />
               <Text style={[styles.loadingBannerText, { color: theme.textMuted }]}>
-                Türk Takvimi'nden vakitler güncelleniyor...
+                Türkiye Takvimi'nden vakitler güncelleniyor...
               </Text>
             </View>
           )}
@@ -515,7 +515,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
 
             <View style={styles.quoteFooterRow}>
               <Text style={[styles.quoteAuthor, { color: isDarkMode ? COLORS.accentRed : COLORS.primary }]}>
-                {calendarDetail.gununSozu ? '— Türk Takvimi' : '— İbn-i Abbâs (r.a.)'}
+                {calendarDetail.gununSozu ? '— Türkiye Takvimi' : '— İbn-i Abbâs (r.a.)'}
               </Text>
               <TouchableOpacity onPress={() => setShowQuoteModal(true)}>
                 <Text style={[styles.readMoreText, { color: theme.textMuted }]}>Tamamını Gör ›</Text>
@@ -655,7 +655,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
                 {calendarDetail.gununSozu || '"İyi ameller güzel sûretlerle, kötü ameller de çirkin kıyâfetlerle gelecek, mizâna konacaktır."'}
               </Text>
               <Text style={[styles.quoteAuthorModal, { color: isDarkMode ? COLORS.accentRed : COLORS.primary }]}>
-                {calendarDetail.gununSozu ? '— Türk Takvimi' : '— İbn-i Abbâs (r.a.)'}
+                {calendarDetail.gununSozu ? '— Türkiye Takvimi' : '— İbn-i Abbâs (r.a.)'}
               </Text>
             </ScrollView>
 

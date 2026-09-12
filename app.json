@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Ezan Vakti",
-    "slug": "ezan-vakti",
+    "name": "Türkiye Takvimi",
+    "slug": "turkiye-takvimi",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",

@@ -46,7 +46,7 @@ export const notificationService = {
 
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('ezan-vakitleri', {
-          name: 'Ezan Vakti Bildirimleri',
+          name: 'Türkiye Takvimi Bildirimleri',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#a01826',

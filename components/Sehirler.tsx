@@ -241,7 +241,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
               <Search size={18} color="rgba(255,255,255,0.6)" style={styles.searchIcon} />
               <TextInput
                 autoFocus
-                placeholder="Türk Takvimi'nde ara (örn. İstanbul, Ankara, Berlin)..."
+                placeholder="Türkiye Takvimi'nde ara (örn. İstanbul, Ankara, Berlin)..."
                 placeholderTextColor="rgba(255,255,255,0.5)"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -281,7 +281,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                   <View style={styles.searchLoadingBox}>
                     <ActivityIndicator size="small" color={COLORS.primary} />
                     <Text style={[styles.searchLoadingText, { color: theme.textMuted }]}>
-                      Türk Takvimi veritabanında aranıyor...
+                      Türkiye Takvimi veritabanında aranıyor...
                     </Text>
                   </View>
                 ) : searchResults.length > 0 ? (
