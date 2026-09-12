@@ -11,6 +11,7 @@ const KEYS = {
   VAKIT_CACHE_PREFIX: 'vakit_response_v2_',
   CALENDAR_DAY_CACHE_PREFIX: 'calendar_day_v2_',
   IMPORTANT_DAYS_CACHE_PREFIX: 'important_days_v2_',
+  LAST_SYNCED_YEAR: 'ezan_last_synced_year',
 } as const;
 
 interface CacheEntry<T> {
@@ -212,5 +213,26 @@ export const storageService = {
 
   async setCachedImportantDays(year: number, data: ImportantDay[]): Promise<void> {
     await writeCache(`${KEYS.IMPORTANT_DAYS_CACHE_PREFIX}${year}`, data);
+  },
+
+  /**
+   * Last synchronized calendar year
+   */
+  async getLastSyncedYear(): Promise<number | null> {
+    try {
+      const val = await AsyncStorage.getItem(KEYS.LAST_SYNCED_YEAR);
+      return val !== null ? parseInt(val, 10) : null;
+    } catch (e) {
+      console.error('storageService.getLastSyncedYear error:', e);
+      return null;
+    }
+  },
+
+  async setLastSyncedYear(year: number): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.LAST_SYNCED_YEAR, String(year));
+    } catch (e) {
+      console.error('storageService.setLastSyncedYear error:', e);
+    }
   },
 };

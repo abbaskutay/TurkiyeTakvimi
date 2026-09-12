@@ -51,6 +51,7 @@ import { CountdownBanner } from './vakitler/CountdownBanner';
 import { PrayerListCard } from './vakitler/PrayerListCard';
 import { GridPrayerCard } from './vakitler/GridPrayerCard';
 import { ReminderModal } from './vakitler/ReminderModal';
+import { YearTransitionModal } from './vakitler/YearTransitionModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -83,6 +84,8 @@ export const Vakitler: React.FC<VakitlerProps> = ({
   const [showSettings, setShowSettings] = useState<string | null>(null);
   const [showCityModal, setShowCityModal] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [showYearTransition, setShowYearTransition] = useState(false);
+  const currentYear = new Date().getFullYear();
   const scrollRef = useRef<ScrollView>(null);
 
   const cityID = currentCity.cityID || '16741';
@@ -116,6 +119,24 @@ export const Vakitler: React.FC<VakitlerProps> = ({
     };
     loadReminders();
   }, []);
+
+  // Check if calendar year has transitioned
+  useEffect(() => {
+    const checkYearTransition = async () => {
+      const lastSynced = await storageService.getLastSyncedYear();
+      if (lastSynced !== null && currentYear > lastSynced) {
+        setShowYearTransition(true);
+      } else if (lastSynced === null) {
+        await storageService.setLastSyncedYear(currentYear);
+      }
+    };
+    checkYearTransition();
+  }, [currentYear]);
+
+  const handleYearTransitionComplete = async () => {
+    await storageService.setLastSyncedYear(currentYear);
+    setShowYearTransition(false);
+  };
 
   // Reschedule local notifications whenever vakitList, reminders, or currentCity changes
   useEffect(() => {
@@ -323,11 +344,15 @@ export const Vakitler: React.FC<VakitlerProps> = ({
       {/* Unified Top Header Banner */}
       <View style={[styles.headerBanner, { backgroundColor: theme.headerBg }]}>
         <View style={styles.headerTopRow}>
-          {/* Gregorian Date */}
-          <View style={styles.dateColLeft}>
+          {/* Gregorian Date (Long press to preview Year Transition) */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onLongPress={() => setShowYearTransition(true)}
+            style={styles.dateColLeft}
+          >
             <Text style={styles.dateDayText}>{dateHeaderInfo.gregorianDay}</Text>
             <Text style={styles.dateSubText}>{dateHeaderInfo.gregorianSub}</Text>
-          </View>
+          </TouchableOpacity>
 
           {/* Clickable City Selector with Dropdown Chevron */}
           <TouchableOpacity
@@ -655,6 +680,15 @@ export const Vakitler: React.FC<VakitlerProps> = ({
         reminders={reminders}
         toggleReminder={toggleReminder}
         updateOffset={updateOffset}
+      />
+
+      {/* New Year Transition & Download Countdown Modal */}
+      <YearTransitionModal
+        visible={showYearTransition}
+        targetYear={currentYear}
+        loading={loading}
+        onComplete={handleYearTransitionComplete}
+        isDarkMode={isDarkMode}
       />
     </View>
   );

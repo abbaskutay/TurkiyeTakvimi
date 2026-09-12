@@ -212,3 +212,20 @@ describe('storageService - Offline Caching Mechanisms', () => {
     assert.strictEqual(result, null);
   });
 });
+
+describe('storageService - Last Synced Year Management', () => {
+  beforeEach(() => {
+    inMemoryStore.clear();
+  });
+
+  it('returns null when no year has been synced yet', async () => {
+    const year = await storageService.getLastSyncedYear();
+    assert.strictEqual(year, null);
+  });
+
+  it('saves and retrieves last synced year correctly', async () => {
+    await storageService.setLastSyncedYear(2027);
+    const year = await storageService.getLastSyncedYear();
+    assert.strictEqual(year, 2027);
+  });
+});

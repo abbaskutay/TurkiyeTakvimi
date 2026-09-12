@@ -49,7 +49,7 @@ export const CountdownBanner: React.FC<CountdownBannerProps> = ({
             </View>
             <View>
               <Text style={styles.floatingSubLabel}>
-                {activePage === 0 ? 'SIRADAKİ VAKİT' : 'SIRADAKİ DETAY'}
+                SIRADAKİ VAKİT
               </Text>
               <Text style={styles.floatingPrayerName}>{countdownInfo.name}</Text>
             </View>

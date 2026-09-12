@@ -43,7 +43,7 @@ export function useTimer(
 
   const countdownInfo = useMemo<CountdownInfo>(() => {
     const currentMinutesTotal = now.getHours() * 60 + now.getMinutes();
-    const targetSet = activePage === 0 ? mainPrayerTimes : flattenedGridTimes;
+    const targetSet = mainPrayerTimes;
 
     let nextIndex = targetSet.findIndex(p => timeToMinutes(p.time) > currentMinutesTotal);
     let nextTime = nextIndex !== -1 ? targetSet[nextIndex] : undefined;
@@ -54,7 +54,7 @@ export function useTimer(
 
     if (!nextTime) {
       // Past the last prayer of the day (e.g. after Yatsı) -> next is tomorrow's first prayer
-      const tomorrowSet = activePage === 0 ? tomorrowMainPrayerTimes : tomorrowGridTimes;
+      const tomorrowSet = tomorrowMainPrayerTimes;
       nextTime = tomorrowSet[0] || targetSet[0];
       targetDate.setDate(targetDate.getDate() + 1);
       prevTime = targetSet[targetSet.length - 1];
@@ -86,7 +86,7 @@ export function useTimer(
       s: pad(diffSec % 60),
       progress,
     };
-  }, [now, activePage, mainPrayerTimes, flattenedGridTimes, tomorrowMainPrayerTimes, tomorrowGridTimes]);
+  }, [now, mainPrayerTimes, tomorrowMainPrayerTimes]);
 
   return { now, countdownInfo, activePrayerId };
 }
