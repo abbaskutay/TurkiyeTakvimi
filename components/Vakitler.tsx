@@ -25,7 +25,6 @@ import {
   CloudMoon,
   Quote,
   History,
-  BookOpen,
 } from 'lucide-react-native';
 import {
   MOCK_PRAYER_TIMES,
@@ -72,7 +71,9 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity: propCity }) => 
   const [showSettings, setShowSettings] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
-  const cityID = currentCity.cityID || currentCity.id || '16741';
+  // currentCity.id is a local list-item key (sometimes a Date.now() timestamp for
+  // GPS-added entries), never a valid Türk Takvimi cityID — don't fall back to it.
+  const cityID = currentCity.cityID || '16741';
 
   const {
     vakitList,
@@ -81,6 +82,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity: propCity }) => 
     calendarDetail,
     loading,
     refreshing,
+    isOffline,
     onRefresh,
   } = usePrayerTimes(cityID);
 
@@ -335,8 +337,17 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity: propCity }) => 
             </View>
           )}
 
-          {/* Günün Olayı Card */}
-          {calendarDetail.gununOlayi ? (
+          {/* Offline Indicator (no network and no cached data for this city yet) */}
+          {!loading && isOffline && (
+            <View style={styles.loadingBanner}>
+              <Text style={[styles.loadingBannerText, { color: theme.textMuted }]}>
+                Çevrimdışı — internet bağlantısı bekleniyor
+              </Text>
+            </View>
+          )}
+
+          {/* Günün Olayı Card (Disabled for now) */}
+          {/* {calendarDetail.gununOlayi ? (
             <View style={[styles.quoteCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
               <View style={styles.quoteHeader}>
                 <View style={styles.quoteIconBox}>
@@ -348,7 +359,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity: propCity }) => 
                 {calendarDetail.gununOlayi}
               </Text>
             </View>
-          ) : null}
+          ) : null} */}
 
           {/* Günün Sözü Card */}
           <View style={[styles.quoteCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -367,23 +378,6 @@ export const Vakitler: React.FC<VakitlerProps> = ({ currentCity: propCity }) => 
               </Text>
             )}
           </View>
-
-          {/* Takvim Arka Yüzü Card */}
-          {calendarDetail.arkayuzYazi ? (
-            <View style={[styles.quoteCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <View style={styles.quoteHeader}>
-                <View style={styles.quoteIconBox}>
-                  <BookOpen size={14} color={COLORS.primary} />
-                </View>
-                <Text style={styles.quoteBadgeText}>
-                  {calendarDetail.arkayuzBaslik || 'TAKVİM YAZISI'}
-                </Text>
-              </View>
-              <Text style={[styles.quoteText, { color: theme.textSecondary }]}>
-                {calendarDetail.arkayuzYazi}
-              </Text>
-            </View>
-          ) : null}
 
           {/* Main 6 Prayer List Card */}
           <PrayerListCard

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,72 +7,114 @@ import {
   ScrollView,
   ActivityIndicator,
   Animated,
-  Alert,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import Svg, { Circle, Line, Text as SvgText, G, Path, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Location from 'expo-location';
-import { RefreshCw, Target, Activity, Compass, CheckCircle2 } from 'lucide-react-native';
+import { WebView } from 'react-native-webview';
+import {
+  RefreshCw,
+  Compass,
+  Map as MapIcon,
+  Info,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  Clock,
+  Navigation,
+  LocateFixed,
+  Sliders,
+} from 'lucide-react-native';
 import { City } from '../types';
 import { COLORS } from '../constants';
-import { turkTakvimApi } from '../services/turkTakvimApi';
 import { useTheme } from '../context/ThemeContext';
 import { useCity } from '../context/CityContext';
+import { usePrayerTimes } from '../hooks/usePrayerTimes';
 import { useCompassSensor } from '../hooks/useCompassSensor';
-import { calculateDirectQibla } from '../utils/qiblaUtils';
+import {
+  calculateNamazVaktiQibla,
+  parseCityCoordinates,
+  generateTheQiblaMapHtml,
+  NamazVaktiQiblaData,
+} from '../utils/qiblaUtils';
 
 interface KibleProps {
   currentCity?: City;
   isDarkMode?: boolean;
 }
 
-interface QiblaData {
-  angle: number;
-  cihet: number;
-  magneticAngle: number;
-  magneticDeviation: number;
-  lat: number;
-  lng: number;
-  distance: number;
-  accuracy: number;
-}
+type ViewMode = 'map' | 'compass';
+type LocationSource = 'city' | 'gps';
+type AngleReference = 'magnetic' | 'geographic';
 
 export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
   const { isDarkMode, theme } = useTheme();
   const { currentCity: contextCity } = useCity();
   const currentCity = propCity || contextCity;
 
+  const [viewMode, setViewMode] = useState<ViewMode>('compass');
+  const [locationSource, setLocationSource] = useState<LocationSource>('city');
+  const [angleReference, setAngleReference] = useState<AngleReference>('magnetic');
+  const [userOffset, setUserOffset] = useState<number>(0); // manual micro-offset in degrees
   const [loading, setLoading] = useState(false);
-  const { deviceHeading, compassAvailable } = useCompassSensor(0.5);
+  const [showExplanation, setShowExplanation] = useState(false);
 
-  const [qiblaData, setQiblaData] = useState<QiblaData>({
-    angle: 151.66,
-    cihet: 280.90,
-    magneticAngle: 145.52,
-    magneticDeviation: 6.14,
-    lat: 41.00,
-    lng: 28.97,
-    distance: 2445,
-    accuracy: 10,
-  });
+  // Live Compass Sensor
+  const {
+    magHeading,
+    compassAvailable,
+  } = useCompassSensor(0.5);
 
   const cityID = currentCity.cityID || '16741';
+  const { cityInfo, todayVakit, isOffline } = usePrayerTimes(cityID);
 
-  // Smooth compass animation drivers
-  const animatedCompass = useRef(new Animated.Value(0)).current;
-  const animatedNeedle = useRef(new Animated.Value(151.66)).current;
+  const [qiblaData, setQiblaData] = useState<NamazVaktiQiblaData>({
+    geographicAngle: 151.66,
+    magneticDeviation: 6.14,
+    compassAngle: 146,
+    distanceKm: 2405,
+    latitude: 41.0082,
+    longitude: 28.9784,
+  });
 
+  // Base Qibla angle depending on chosen reference (Magnetic Pusula Açısı: 146° vs Geographic: 152°)
+  const baseTargetAngle = useMemo(() => {
+    if (angleReference === 'magnetic') {
+      // Pusula Kuzeyinden Kıble Açısı (Türk Takvimi standart pusula derecesi - sola 6° kaydırılmış)
+      return qiblaData.compassAngle + userOffset;
+    } else {
+      // Coğrafi Kuzeyden Kıble Açısı
+      return Math.round(qiblaData.geographicAngle) + userOffset;
+    }
+  }, [angleReference, qiblaData.compassAngle, qiblaData.geographicAngle, userOffset]);
+
+  // Target needle angle relative to top of phone:
   const targetNeedleAngle = useMemo(() => {
-    return (qiblaData.angle - deviceHeading + 360) % 360;
-  }, [qiblaData.angle, deviceHeading]);
+    // With magnetic heading (standard phone compass):
+    const target = (baseTargetAngle - magHeading + 360) % 360;
+    return target;
+  }, [baseTargetAngle, magHeading]);
 
+  // Compass dial rotation (outer degree ring rotates with magnetometer)
+  const dialRotation = useMemo(() => {
+    return (-magHeading + 360) % 360;
+  }, [magHeading]);
+
+  // Check if device is aligned with Kaaba within +/- 3 degrees
   const isAligned = useMemo(() => {
-    const diff = Math.abs((targetNeedleAngle + 360) % 360);
-    return diff <= 4 || Math.abs(diff - 360) <= 4;
+    const diff = Math.abs(targetNeedleAngle);
+    return diff <= 3.5 || Math.abs(diff - 360) <= 3.5;
   }, [targetNeedleAngle]);
+
+  // Smooth animation drivers
+  const animatedCompass = useRef(new Animated.Value(0)).current;
+  const animatedNeedle = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.spring(animatedCompass, {
-      toValue: -deviceHeading,
+      toValue: dialRotation,
       friction: 8,
       tension: 50,
       useNativeDriver: true,
@@ -84,325 +126,646 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
       tension: 40,
       useNativeDriver: true,
     }).start();
-  }, [deviceHeading, targetNeedleAngle, animatedCompass, animatedNeedle]);
+  }, [dialRotation, targetNeedleAngle, animatedCompass, animatedNeedle]);
 
-  const calculateQibla = async () => {
+  // Calculate Qibla data from cityInfo or GPS
+  const calculateQibla = useCallback(async (source: LocationSource = locationSource) => {
     setLoading(true);
     try {
-      const res = await turkTakvimApi.getPrayerTimes(cityID);
-      let apiQiblaAngle: number | null = null;
-      let apiMagDeg: number | null = null;
+      let lat = 41.0082;
+      let lng = 28.9784;
+      const magDeg = cityInfo?.magdeg ? parseFloat(cityInfo.magdeg) : 6.14;
 
-      if (res && res.cityinfo && res.cityinfo['@attributes']) {
-        const info = res.cityinfo['@attributes'];
-        if (info.qiblaangle) {
-          apiQiblaAngle = parseFloat(info.qiblaangle);
+      if (source === 'gps') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          lat = location.coords.latitude;
+          lng = location.coords.longitude;
+        } else {
+          // fallback to city coords
+          const parsedCityCoords = parseCityCoordinates(cityInfo);
+          if (parsedCityCoords) {
+            lat = parsedCityCoords.latitude;
+            lng = parsedCityCoords.longitude;
+          }
         }
-        if (info.magdeg) {
-          apiMagDeg = parseFloat(info.magdeg);
+      } else {
+        // City Mode: Authoritative TurkTakvim City Coordinates
+        const parsedCityCoords = parseCityCoordinates(cityInfo);
+        if (parsedCityCoords) {
+          lat = parsedCityCoords.latitude;
+          lng = parsedCityCoords.longitude;
         }
       }
 
-      let latitude = 41.0082;
-      let longitude = 28.9784;
-      let accuracy = 10;
+      const calculated = calculateNamazVaktiQibla(lat, lng, magDeg);
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-        latitude = location.coords.latitude;
-        longitude = location.coords.longitude;
-        accuracy = Math.round(location.coords.accuracy || 10);
+      // If API provides explicit authoritative qiblaangle, preserve it for the city
+      if (source === 'city' && cityInfo?.qiblaangle) {
+        calculated.geographicAngle = parseFloat(cityInfo.qiblaangle);
+        calculated.compassAngle = (Math.round(calculated.geographicAngle) - Math.round(calculated.magneticDeviation) + 360) % 360;
       }
 
-      const { bearing, distance } = calculateDirectQibla(latitude, longitude);
-      const finalAngle = apiQiblaAngle ?? parseFloat(bearing.toFixed(2));
-      const finalMagDeviation = apiMagDeg ?? 6.14;
-      const finalMagAngle = parseFloat(((finalAngle - finalMagDeviation + 360) % 360).toFixed(2));
-
-      setQiblaData({
-        angle: finalAngle,
-        cihet: 280.9,
-        magneticAngle: finalMagAngle,
-        magneticDeviation: finalMagDeviation,
-        lat: parseFloat(latitude.toFixed(4)),
-        lng: parseFloat(longitude.toFixed(4)),
-        distance,
-        accuracy,
-      });
+      setQiblaData(calculated);
     } catch (error) {
       console.error('Qibla calculation error:', error);
-      Alert.alert('Hata', 'Kıble açısı hesaplanırken bir sorun oluştu.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [cityInfo, locationSource]);
 
   useEffect(() => {
-    calculateQibla();
-  }, [cityID]);
+    calculateQibla(locationSource);
+  }, [calculateQibla, locationSource]);
+
+  // Generate the Leaflet HTML map content
+  const mapHtml = useMemo(() => {
+    return generateTheQiblaMapHtml(
+      qiblaData.latitude,
+      qiblaData.longitude,
+      qiblaData.magneticDeviation,
+      isDarkMode
+    );
+  }, [qiblaData.latitude, qiblaData.longitude, qiblaData.magneticDeviation, isDarkMode]);
+
+  // Handle live drag messages from the map
+  const handleMapMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
+        const updated = calculateNamazVaktiQibla(
+          data.lat,
+          data.lng,
+          qiblaData.magneticDeviation
+        );
+        setQiblaData(updated);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const windowHeight = Dimensions.get('window').height;
+  const mapHeight = Math.max(380, windowHeight * 0.48);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header Banner */}
       <View style={[styles.headerBanner, { backgroundColor: theme.headerBg }]}>
-        <View style={styles.headerSpacer} />
-        <View style={styles.headerTitleCenter}>
-          <Text style={styles.headerTitle}>HASSAS CANLI KIBLE</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>KIBLE TAYİNİ</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {currentCity.name} (TÜRK TAKVİMİ)
+            {currentCity.name.toUpperCase()} • {locationSource === 'gps' ? 'CANLI GPS' : 'TÜRK TAKVİMİ'}
+            {isOffline ? ' • ÇEVRİMDIŞI' : ''}
           </Text>
         </View>
+
         <TouchableOpacity
-          onPress={calculateQibla}
+          onPress={() => calculateQibla(locationSource)}
           disabled={loading}
+          activeOpacity={0.7}
           style={styles.refreshButton}
         >
           {loading ? (
             <ActivityIndicator size="small" color="#ffffff" />
           ) : (
-            <RefreshCw size={20} color="#ffffff" />
+            <RefreshCw size={18} color="#ffffff" />
           )}
         </TouchableOpacity>
+      </View>
+
+      {/* Segmented Mode Switcher (Canlı Pusula vs Uydu Haritası) */}
+      <View style={[styles.modeSwitcherContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setViewMode('compass')}
+          style={[
+            styles.modeButton,
+            viewMode === 'compass' && {
+              backgroundColor: isDarkMode ? COLORS.primaryDark : COLORS.primary,
+            },
+          ]}
+        >
+          <Compass size={16} color={viewMode === 'compass' ? '#ffffff' : theme.textSecondary} />
+          <Text
+            style={[
+              styles.modeButtonText,
+              { color: viewMode === 'compass' ? '#ffffff' : theme.textSecondary },
+            ]}
+          >
+            Canlı Pusula
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setViewMode('map')}
+          style={[
+            styles.modeButton,
+            viewMode === 'map' && {
+              backgroundColor: isDarkMode ? COLORS.primaryDark : COLORS.primary,
+            },
+          ]}
+        >
+          <MapIcon size={16} color={viewMode === 'map' ? '#ffffff' : theme.textSecondary} />
+          <Text
+            style={[
+              styles.modeButtonText,
+              { color: viewMode === 'map' ? '#ffffff' : theme.textSecondary },
+            ]}
+          >
+            Uydu Haritası (theQibla)
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Location & Angle Mode Selectors */}
+      <View style={styles.selectorsContainer}>
+        {/* Source Pills (City vs GPS) */}
+        <View style={styles.sourceSelectorRow}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setLocationSource('city')}
+            style={[
+              styles.sourcePill,
+              {
+                backgroundColor: locationSource === 'city' ? (isDarkMode ? '#2a0a0e' : '#fee2e2') : 'transparent',
+                borderColor: locationSource === 'city' ? COLORS.primary : theme.cardBorder,
+              },
+            ]}
+          >
+            <MapPin size={12} color={locationSource === 'city' ? COLORS.primary : theme.textMuted} />
+            <Text
+              style={[
+                styles.sourcePillText,
+                { color: locationSource === 'city' ? (isDarkMode ? COLORS.accentRed : COLORS.primary) : theme.textMuted },
+              ]}
+            >
+              {currentCity.name}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setLocationSource('gps')}
+            style={[
+              styles.sourcePill,
+              {
+                backgroundColor: locationSource === 'gps' ? (isDarkMode ? '#064e3b' : '#dcfce7') : 'transparent',
+                borderColor: locationSource === 'gps' ? '#16a34a' : theme.cardBorder,
+              },
+            ]}
+          >
+            <LocateFixed size={12} color={locationSource === 'gps' ? '#16a34a' : theme.textMuted} />
+            <Text
+              style={[
+                styles.sourcePillText,
+                { color: locationSource === 'gps' ? '#16a34a' : theme.textMuted },
+              ]}
+            >
+              Canlı GPS
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Pusula Açısı Reference Switcher (Pusula: 146° vs Coğrafi: 152°) */}
+        {viewMode === 'compass' && (
+          <View style={styles.referenceSelectorRow}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setAngleReference('magnetic')}
+              style={[
+                styles.refBadge,
+                {
+                  backgroundColor: angleReference === 'magnetic' ? '#dc2626' : (isDarkMode ? '#1f2937' : '#f3f4f6'),
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.refBadgeText,
+                  { color: angleReference === 'magnetic' ? '#ffffff' : theme.textSecondary },
+                ]}
+              >
+                Pusula Açısı ({qiblaData.compassAngle}°)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setAngleReference('geographic')}
+              style={[
+                styles.refBadge,
+                {
+                  backgroundColor: angleReference === 'geographic' ? '#0d9488' : (isDarkMode ? '#1f2937' : '#f3f4f6'),
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.refBadgeText,
+                  { color: angleReference === 'geographic' ? '#ffffff' : theme.textSecondary },
+                ]}
+              >
+                Coğrafi Açı ({Math.round(qiblaData.geographicAngle)}°)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Alignment Status Banner */}
-        {isAligned ? (
-          <View style={styles.alignedBanner}>
-            <CheckCircle2 size={18} color="#ffffff" />
-            <Text style={styles.alignedBannerText}>KIBLEYE HİZALANDI (TAM KABE YÖNÜ)</Text>
+        {/* VIEW MODE 1: INTERACTIVE THEQIBLA.PHP SATELLITE MAP */}
+        {viewMode === 'map' ? (
+          <View style={styles.mapContainer}>
+            <View style={[styles.mapCard, { height: mapHeight, borderColor: theme.cardBorder }]}>
+              {Platform.OS === 'web' ? (
+                // Web iframe render
+                // @ts-ignore
+                <iframe
+                  title="theQibla Map"
+                  srcDoc={mapHtml}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                    borderRadius: 20,
+                  }}
+                />
+              ) : (
+                // Native WebView render
+                <WebView
+                  originWhitelist={['*']}
+                  source={{ html: mapHtml }}
+                  style={styles.webView}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                  onMessage={handleMapMessage}
+                />
+              )}
+            </View>
+
+            <Text style={[styles.mapDragHint, { color: theme.textMuted }]}>
+              💡 <Text style={{ fontWeight: '700' }}>İpucu:</Text> Haritayı kaydırıp kırmızı işareti evinizin/binanızın üzerine getirdiğinizde çıkan yeşil hat, o binanın tam kıble istikâmetidir.
+            </Text>
           </View>
         ) : (
-          <View style={styles.angleDisplayBox}>
-            <View style={styles.angleTagRow}>
-              <Target size={16} color={isDarkMode ? COLORS.accentRed : COLORS.primary} />
-              <Text
-                style={[
-                  styles.angleTagText,
-                  { color: isDarkMode ? COLORS.accentRed : COLORS.primary },
-                ]}
-              >
-                TÜRK TAKVİMİ KIBLE AÇISI
+          /* VIEW MODE 2: LIVE COMPASS SENSOR VIEW */
+          <View style={styles.compassSection}>
+            {isAligned ? (
+              <View style={styles.alignedBanner}>
+                <CheckCircle2 size={22} color="#ffffff" />
+                <View>
+                  <Text style={styles.alignedBannerTitle}>KIBLEYE HİZALANDI</Text>
+                  <Text style={styles.alignedBannerSubtitle}>Telefonunuz tam Kâbe yönüne bakıyor</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.angleDisplayBox}>
+                <Text style={[styles.angleTagText, { color: angleReference === 'magnetic' ? '#dc2626' : '#0d9488' }]}>
+                  {angleReference === 'magnetic' ? 'TÜRK TAKVİMİ PUSULA AÇISI' : 'COĞRAFİ KUZEY AÇISI'}
+                </Text>
+                <Text style={[styles.angleBigText, { color: theme.textPrimary }]}>
+                  {loading ? '---' : `${baseTargetAngle}°`}
+                </Text>
+                <Text style={[styles.modelSubText, { color: theme.textMuted }]}>
+                  {compassAvailable
+                    ? `Pusula Yönü: ${Math.round(magHeading)}° • Hedef Açısı: ${baseTargetAngle}°`
+                    : 'Pusula Sensörü Hazır Değil'}
+                </Text>
+              </View>
+            )}
+
+            {/* SVG 360° Rotating Compass Dial */}
+            <View style={[styles.compassWrapper, isAligned && styles.alignedCompassWrapper]}>
+              <Svg width="270" height="260" viewBox="0 0 200 200">
+                <Defs>
+                  <RadialGradient id="compassGradLight" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0%" stopColor="#ffffff" />
+                    <Stop offset="100%" stopColor="#f3f4f6" />
+                  </RadialGradient>
+                  <RadialGradient id="compassGradDark" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0%" stopColor="#222222" />
+                    <Stop offset="100%" stopColor="#111111" />
+                  </RadialGradient>
+                  <RadialGradient id="compassGradAligned" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0%" stopColor="#15803d" />
+                    <Stop offset="100%" stopColor="#166534" />
+                  </RadialGradient>
+                </Defs>
+
+                {/* Rotatable Compass Rose / Degree Ring */}
+                <G transform={`rotate(${dialRotation}, 100, 100)`}>
+                  <Circle
+                    cx="100"
+                    cy="100"
+                    r="96"
+                    fill={
+                      isAligned
+                        ? 'url(#compassGradAligned)'
+                        : isDarkMode
+                        ? 'url(#compassGradDark)'
+                        : 'url(#compassGradLight)'
+                    }
+                    stroke={isAligned ? '#22c55e' : isDarkMode ? '#333333' : '#e5e7eb'}
+                    strokeWidth={isAligned ? '3' : '2'}
+                  />
+                  <Circle
+                    cx="100"
+                    cy="100"
+                    r="90"
+                    fill="none"
+                    stroke={isAligned ? 'rgba(255,255,255,0.2)' : isDarkMode ? '#222' : '#f0f0f0'}
+                    strokeWidth="1"
+                  />
+
+                  {/* Tick Marks (Every 5 degrees, major ticks every 30 degrees) */}
+                  {[...Array(72)].map((_, i) => {
+                    const ang = i * 5;
+                    const rad = ((ang - 90) * Math.PI) / 180;
+                    const isMajor = i % 6 === 0;
+                    const r1 = isMajor ? 84 : 88;
+                    const r2 = 94;
+                    return (
+                      <Line
+                        key={i}
+                        x1={100 + r1 * Math.cos(rad)}
+                        y1={100 + r1 * Math.sin(rad)}
+                        x2={100 + r2 * Math.cos(rad)}
+                        y2={100 + r2 * Math.sin(rad)}
+                        stroke={
+                          isAligned
+                            ? '#ffffff'
+                            : isMajor
+                            ? isDarkMode
+                              ? COLORS.accentRed
+                              : COLORS.primary
+                            : isDarkMode
+                            ? '#444'
+                            : '#d1d5db'
+                        }
+                        strokeWidth={isMajor ? '1.8' : '0.6'}
+                      />
+                    );
+                  })}
+
+                  {/* Cardinal Letters (N, E, S, W) */}
+                  {[
+                    { ang: 0, label: 'N' },
+                    { ang: 90, label: 'E' },
+                    { ang: 180, label: 'S' },
+                    { ang: 270, label: 'W' },
+                  ].map(({ ang, label }) => {
+                    const rad = ((ang - 90) * Math.PI) / 180;
+                    const x = 100 + 72 * Math.cos(rad);
+                    const y = 100 + 72 * Math.sin(rad);
+                    return (
+                      <SvgText
+                        key={label}
+                        x={x}
+                        y={y + 4}
+                        fontSize="12"
+                        fontWeight="900"
+                        textAnchor="middle"
+                        fill={
+                          isAligned
+                            ? '#ffffff'
+                            : ang === 0
+                            ? isDarkMode
+                              ? COLORS.accentRed
+                              : COLORS.primary
+                            : isDarkMode
+                            ? '#6b7280'
+                            : '#9ca3af'
+                        }
+                      >
+                        {label}
+                      </SvgText>
+                    );
+                  })}
+                </G>
+
+                {/* PROMINENT QIBLA NEEDLE (Arrow pointing directly towards Kaaba) */}
+                <G transform={`rotate(${targetNeedleAngle}, 100, 100)`}>
+                  {/* Subtle Shadow */}
+                  <Path
+                    d="M100 20 L112 88 L100 78 L88 88 Z"
+                    fill="rgba(0,0,0,0.15)"
+                  />
+
+                  {/* Forward Arrowhead (Pointing UP to 12 o'clock / Kaaba) */}
+                  <Path
+                    d="M100 22 L112 88 L100 78 L88 88 Z"
+                    fill={isAligned ? '#22c55e' : isDarkMode ? COLORS.accentRed : COLORS.primary}
+                  />
+                  <Path
+                    d="M100 22 L100 78 L88 88 Z"
+                    fill={isAligned ? '#16a34a' : isDarkMode ? '#b31d2e' : '#7a101d'}
+                  />
+
+                  {/* Golden Kaaba Badge on the Pointer Tip */}
+                  <G transform="translate(92, 38)">
+                    <Rect width="16" height="16" rx="2" fill="#111111" stroke="#d4af37" strokeWidth="1" />
+                    <Rect y="5" width="16" height="2.5" fill="#d4af37" />
+                  </G>
+
+                  {/* KIBLE / KÂBE Label on Arrow Shaft */}
+                  <SvgText
+                    x="100"
+                    y="68"
+                    fontSize="6.5"
+                    textAnchor="middle"
+                    fill="#ffffff"
+                    fontWeight="900"
+                    letterSpacing="0.8"
+                  >
+                    KIBLE
+                  </SvgText>
+
+                  {/* Rear Tail (Pointing DOWN to South / opposite) */}
+                  <Path
+                    d="M100 160 L108 112 L100 120 L92 112 Z"
+                    fill={isDarkMode ? '#374151' : '#cbd5e1'}
+                  />
+                  <Path
+                    d="M100 160 L100 120 L92 112 Z"
+                    fill={isDarkMode ? '#1f2937' : '#94a3b8'}
+                  />
+
+                  {/* Center Pivot Point */}
+                  <Circle
+                    cx="100"
+                    cy="100"
+                    r="12"
+                    fill={isAligned ? '#22c55e' : isDarkMode ? '#1e293b' : '#ffffff'}
+                    stroke={isAligned ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary}
+                    strokeWidth="2.5"
+                  />
+                  <Circle
+                    cx="100"
+                    cy="100"
+                    r="4"
+                    fill={isAligned ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary}
+                  />
+                </G>
+              </Svg>
+            </View>
+
+            {/* Micro-Adjustment Stepper (±1°, ±2°) */}
+            <View style={styles.fineTuneRow}>
+              <Text style={[styles.fineTuneLabel, { color: theme.textMuted }]}>
+                İnce Ayar ({userOffset > 0 ? `+${userOffset}°` : `${userOffset}°`}):
+              </Text>
+              <View style={styles.stepperGroup}>
+                <TouchableOpacity
+                  onPress={() => setUserOffset(prev => prev - 2)}
+                  style={[styles.stepperBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                >
+                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>-2°</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setUserOffset(prev => prev - 1)}
+                  style={[styles.stepperBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                >
+                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>-1°</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setUserOffset(0)}
+                  style={[styles.stepperBtn, { backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb', borderColor: theme.cardBorder }]}
+                >
+                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>Sıfırla</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setUserOffset(prev => prev + 1)}
+                  style={[styles.stepperBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                >
+                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>+1°</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setUserOffset(prev => prev + 2)}
+                  style={[styles.stepperBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                >
+                  <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>+2°</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* theQibla.php AUTHENTIC INFORMATION BOARD */}
+        <View style={[styles.infoBoardCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={styles.boardHeaderRow}>
+            <View style={styles.boardHeaderLeft}>
+              <MapPin size={16} color={COLORS.primary} />
+              <Text style={[styles.boardTitle, { color: theme.textPrimary }]}>
+                KIBLE HESAPLAMA VERİLERİ
               </Text>
             </View>
-            <Text style={[styles.angleBigText, { color: theme.textPrimary }]}>
-              {loading ? '---' : `${qiblaData.angle.toFixed(2)}°`}
+            <Text style={[styles.coordsPill, { backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6', color: theme.textSecondary }]}>
+              {qiblaData.latitude.toFixed(4)} , {qiblaData.longitude.toFixed(4)}
             </Text>
-            <Text style={[styles.modelSubText, { color: theme.textMuted }]}>
-              {compassAvailable ? `Telefon Açısı: ${Math.round(deviceHeading)}°` : 'Sabit Görünüm'}
+          </View>
+
+          <View style={styles.boardDivider} />
+
+          {/* 1. Coğrafi Kuzey Açısı */}
+          <View style={styles.boardDataRow}>
+            <Text style={[styles.boardLabel, { color: theme.textSecondary }]}>
+              • Coğrafi Kuzeyden Saat Yönünde Kıble Açısı:
+            </Text>
+            <Text style={styles.cografiKuzeyVal}>
+              {Math.round(qiblaData.geographicAngle)}°
+            </Text>
+          </View>
+
+          {/* 2. Magnetik Sapma Açısı */}
+          <View style={styles.boardDataRow}>
+            <Text style={[styles.boardLabel, { color: theme.textSecondary }]}>
+              • Magnetik Sapma Açısı:
+            </Text>
+            <Text style={[styles.magSapmaVal, { color: theme.textPrimary }]}>
+              {qiblaData.magneticDeviation > 0 ? '+' : ''}{Math.round(qiblaData.magneticDeviation)}°
+            </Text>
+          </View>
+
+          {/* 3. Pusula Kuzey Açısı */}
+          <View style={styles.boardDataRow}>
+            <Text style={[styles.boardLabel, { color: theme.textSecondary }]}>
+              • Pusula Kuzeyinden Saat Yönünde Kıble Açısı:
+            </Text>
+            <Text style={styles.pusulaKuzeyVal}>
+              {qiblaData.compassAngle}°
+            </Text>
+          </View>
+
+          {/* 4. Bugünün Kıble Saati (TurkTakvim API) */}
+          {todayVakit?.kible ? (
+            <View style={[styles.boardDataRow, styles.kibleSaatiRow]}>
+              <View style={styles.kibleSaatiLeft}>
+                <Clock size={14} color="#d97706" />
+                <Text style={[styles.boardLabel, { color: theme.textPrimary, fontWeight: '700' }]}>
+                  Bugünün Kıble Saati:
+                </Text>
+              </View>
+              <Text style={styles.kibleSaatiVal}>
+                {todayVakit.kible}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* 5. Kâbe-i Şerîf Uzaklığı */}
+          <View style={styles.boardDataRow}>
+            <View style={styles.kibleSaatiLeft}>
+              <Navigation size={14} color={theme.textMuted} />
+              <Text style={[styles.boardLabel, { color: theme.textSecondary }]}>
+                Kâbe-i Şerîf Uzaklığı:
+              </Text>
+            </View>
+            <Text style={[styles.distanceVal, { color: theme.textPrimary }]}>
+              {qiblaData.distanceKm.toLocaleString('tr-TR')} km
+            </Text>
+          </View>
+        </View>
+
+        {/* COLLAPSIBLE EXPLANATION (Haritanın Açıklaması - theQibla.php) */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setShowExplanation(!showExplanation)}
+          style={[styles.explanationToggle, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+        >
+          <View style={styles.explanationToggleLeft}>
+            <Info size={16} color={COLORS.primary} />
+            <Text style={[styles.explanationToggleText, { color: theme.textPrimary }]}>
+              Haritanın Açıklaması
+            </Text>
+          </View>
+          {showExplanation ? (
+            <ChevronUp size={18} color={theme.textMuted} />
+          ) : (
+            <ChevronDown size={18} color={theme.textMuted} />
+          )}
+        </TouchableOpacity>
+
+        {showExplanation && (
+          <View style={[styles.explanationBox, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <Text style={[styles.explanationText, { color: theme.textSecondary }]}>
+              Şehir merkezinin üzerinde kırmızı ampul şekli ile bu ampulden çıkan ve kıble istikâmetini gösteren yeşil bir hat görülür.
+              {'\n\n'}
+              Buradaki harîta üzerine çift parmak ile dokunarak harîta büyütülebilir. Kâfi miktarda büyütülünce, harîtada bulunan gidilecek binâ veyâ kalınacak ev, otel üzerine, kırmızı ampulün ucunun getirilmesi için, ampul sabit olduğundan, harîta parmakla sağa sola ve aşağı yukarı hareket ettirilir.
+              {'\n\n'}
+              O binânın veyâ evin üstüne kırmızı ampulün ucu getirildiğinde, ampulden çıkan yeşil hat, o binâ veya evin kıble istikâmetidir. Yani, bulunulan binâ veyâ evin kıble istikâmeti doğru olarak bu şekilde bulunur.
             </Text>
           </View>
         )}
 
-        {/* SVG Live Compass Dial */}
-        <View style={[styles.compassWrapper, isAligned && styles.alignedCompassWrapper]}>
-          <Svg width="270" height="260" viewBox="0 0 200 200">
-            <Defs>
-              <RadialGradient id="compassGradLight" cx="50%" cy="50%" r="50%">
-                <Stop offset="0%" stopColor="#ffffff" />
-                <Stop offset="100%" stopColor="#f3f4f6" />
-              </RadialGradient>
-              <RadialGradient id="compassGradDark" cx="50%" cy="50%" r="50%">
-                <Stop offset="0%" stopColor="#222222" />
-                <Stop offset="100%" stopColor="#111111" />
-              </RadialGradient>
-              <RadialGradient id="compassGradAligned" cx="50%" cy="50%" r="50%">
-                <Stop offset="0%" stopColor="#15803d" />
-                <Stop offset="100%" stopColor="#166534" />
-              </RadialGradient>
-            </Defs>
-
-            {/* Rotatable Compass Dial Group */}
-            <G transform={`rotate(${-deviceHeading}, 100, 100)`}>
-              <Circle
-                cx="100"
-                cy="100"
-                r="96"
-                fill={
-                  isAligned
-                    ? 'url(#compassGradAligned)'
-                    : isDarkMode
-                    ? 'url(#compassGradDark)'
-                    : 'url(#compassGradLight)'
-                }
-                stroke={isAligned ? '#22c55e' : isDarkMode ? '#333333' : '#e5e7eb'}
-                strokeWidth={isAligned ? '3' : '2'}
-              />
-              <Circle
-                cx="100"
-                cy="100"
-                r="90"
-                fill="none"
-                stroke={isAligned ? 'rgba(255,255,255,0.2)' : isDarkMode ? '#222' : '#f0f0f0'}
-                strokeWidth="1"
-              />
-
-              {/* Tick Marks */}
-              {[...Array(72)].map((_, i) => {
-                const ang = i * 5;
-                const rad = ((ang - 90) * Math.PI) / 180;
-                const isMajor = i % 6 === 0;
-                const r1 = isMajor ? 84 : 88;
-                const r2 = 94;
-                return (
-                  <Line
-                    key={i}
-                    x1={100 + r1 * Math.cos(rad)}
-                    y1={100 + r1 * Math.sin(rad)}
-                    x2={100 + r2 * Math.cos(rad)}
-                    y2={100 + r2 * Math.sin(rad)}
-                    stroke={
-                      isAligned
-                        ? '#ffffff'
-                        : isMajor
-                        ? isDarkMode
-                          ? COLORS.accentRed
-                          : COLORS.primary
-                        : isDarkMode
-                        ? '#444'
-                        : '#d1d5db'
-                    }
-                    strokeWidth={isMajor ? '1.5' : '0.5'}
-                  />
-                );
-              })}
-
-              {/* Cardinal Letters (N, E, S, W) */}
-              {[
-                { ang: 0, label: 'N' },
-                { ang: 90, label: 'E' },
-                { ang: 180, label: 'S' },
-                { ang: 270, label: 'W' },
-              ].map(({ ang, label }) => {
-                const rad = ((ang - 90) * Math.PI) / 180;
-                const x = 100 + 72 * Math.cos(rad);
-                const y = 100 + 72 * Math.sin(rad);
-                return (
-                  <SvgText
-                    key={label}
-                    x={x}
-                    y={y + 4}
-                    fontSize="12"
-                    fontWeight="900"
-                    textAnchor="middle"
-                    fill={
-                      isAligned
-                        ? '#ffffff'
-                        : ang === 0
-                        ? isDarkMode
-                          ? COLORS.accentRed
-                          : COLORS.primary
-                        : isDarkMode
-                        ? '#6b7280'
-                        : '#9ca3af'
-                    }
-                  >
-                    {label}
-                  </SvgText>
-                );
-              })}
-            </G>
-
-            {/* Target Qibla Needle Group */}
-            <G transform={`rotate(${targetNeedleAngle}, 100, 100)`}>
-              <Path d="M100 135 L124 100 L76 100 Z" fill="rgba(0,0,0,0.15)" />
-              <Path
-                d="M100 135 L128 100 L72 100 Z"
-                fill={isAligned ? '#22c55e' : isDarkMode ? COLORS.accentRed : COLORS.primary}
-              />
-              <Rect
-                x="94"
-                y="32"
-                width="12"
-                height="68"
-                fill={isAligned ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary}
-                rx="2"
-              />
-              <SvgText
-                x="100"
-                y="66"
-                fontSize="7"
-                textAnchor="middle"
-                fill={isAligned ? '#15803d' : '#ffffff'}
-                transform="rotate(90, 100, 66)"
-                fontWeight="900"
-                letterSpacing="1"
-              >
-                KIBLE
-              </SvgText>
-
-              <G transform="translate(94, 35)">
-                <Rect width="12" height="12" fill="#111111" rx="1" />
-                <Rect y="4" width="12" height="2" fill="#d4af37" />
-              </G>
-
-              <Circle
-                cx="100"
-                cy="100"
-                r="11"
-                fill={isAligned ? '#22c55e' : isDarkMode ? '#121212' : '#ffffff'}
-                stroke={isAligned ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary}
-                strokeWidth="2"
-              />
-              <Circle
-                cx="100"
-                cy="100"
-                r="4"
-                fill={isAligned ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary}
-              />
-            </G>
-          </Svg>
-        </View>
-
-        {/* 4 Data Cards Grid */}
-        <View style={styles.dataCardsGrid}>
-          <View style={[styles.dataCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.dataCardLabel, { color: theme.textMuted }]}>MANYETİK SAPMA</Text>
-            <View style={styles.dataCardValueRow}>
-              <Activity size={12} color={isDarkMode ? COLORS.accentRed : COLORS.primary} />
-              <Text style={[styles.dataCardValue, { color: theme.textPrimary }]}>
-                {loading ? '...' : `${qiblaData.magneticDeviation > 0 ? '+' : ''}${qiblaData.magneticDeviation.toFixed(2)}°`}
-              </Text>
-            </View>
-            <Text style={[styles.dataCardSub, { color: theme.textMuted }]}>Türk Takvimi Modeli</Text>
-          </View>
-
-          <View style={[styles.dataCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.dataCardLabel, { color: theme.textMuted }]}>KONUM HASSASİYETİ</Text>
-            <View style={styles.dataCardValueRow}>
-              <Compass size={12} color="#3b82f6" />
-              <Text style={[styles.dataCardValue, { color: theme.textPrimary }]}>
-                {loading ? '...' : `±${qiblaData.accuracy}m`}
-              </Text>
-            </View>
-            <Text style={[styles.dataCardSub, { color: theme.textMuted }]}>GPS / Network</Text>
-          </View>
-
-          <View style={[styles.dataCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.dataCardLabel, { color: theme.textMuted }]}>PUSULA AÇISI</Text>
-            <Text style={[styles.dataCardValue, { color: theme.textPrimary }]}>
-              {loading ? '...' : `${qiblaData.magneticAngle.toFixed(2)}°`}
-            </Text>
-            <Text style={[styles.dataCardSub, { color: theme.textMuted }]}>Manyetik Kuzey</Text>
-          </View>
-
-          <View style={[styles.dataCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.dataCardLabel, { color: theme.textMuted }]}>KABE UZAKLIĞI</Text>
-            <Text style={[styles.dataCardValue, { color: theme.textPrimary }]}>
-              {loading ? '...' : `${qiblaData.distance.toLocaleString()} km`}
-            </Text>
-            <Text style={[styles.dataCardSub, { color: theme.textMuted }]}>Ortodromik</Text>
-          </View>
-        </View>
-
         <Text style={[styles.footnoteText, { color: theme.textMuted }]}>
-          Telefonunuzun pusula sensörünü doğru kullanabilmek için cihazınızı düz tutunuz ve etrafında manyetik/metalik eşyalar bulunmamasına dikkat ediniz.
+          Türk Takvimi rasat ve hesaplama metotları baz alınmıştır. (namazvakti.com/theQibla.php)
         </Text>
       </ScrollView>
     </View>
@@ -416,11 +779,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerBanner: {
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -430,15 +793,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  headerSpacer: {
-    width: 40,
-  },
-  headerTitleCenter: {
-    alignItems: 'center',
+  headerLeft: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: 0.5,
@@ -446,21 +805,115 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 10,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 1,
+    color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 0.8,
     marginTop: 2,
   },
   refreshButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  modeSwitcherContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 6,
+    padding: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  modeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 10,
+    gap: 6,
+  },
+  modeButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  selectorsContainer: {
+    marginHorizontal: 16,
+    marginBottom: 4,
+    gap: 6,
+  },
+  sourceSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sourcePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  sourcePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  referenceSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  refBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  refBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
   scrollContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 120,
+    alignItems: 'center',
+  },
+  mapContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  mapCard: {
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  webView: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000',
+  },
+  mapDragHint: {
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 8,
+    paddingHorizontal: 6,
+    textAlign: 'center',
+  },
+  compassSection: {
+    width: '100%',
     alignItems: 'center',
   },
   alignedBanner: {
@@ -470,29 +923,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 20,
-    gap: 10,
-    marginTop: 8,
+    gap: 12,
+    marginTop: 6,
     shadowColor: '#16a34a',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
   },
-  alignedBannerText: {
-    fontSize: 11,
+  alignedBannerTitle: {
+    fontSize: 13,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+  },
+  alignedBannerSubtitle: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '600',
   },
   angleDisplayBox: {
     alignItems: 'center',
-    marginTop: 8,
-  },
-  angleTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    marginTop: 6,
   },
   angleTagText: {
     fontSize: 10,
@@ -500,7 +952,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   angleBigText: {
-    fontSize: 54,
+    fontSize: 48,
     fontWeight: '300',
     letterSpacing: -2,
   },
@@ -510,7 +962,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   compassWrapper: {
-    marginVertical: 20,
+    marginVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -524,48 +976,151 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 20,
   },
-  dataCardsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    width: '100%',
-    marginTop: 10,
-  },
-  dataCard: {
-    flex: 1,
-    minWidth: '47%',
-    padding: 14,
-    borderRadius: 20,
-    borderWidth: 1,
+  fineTuneRow: {
     alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 8,
+    gap: 6,
   },
-  dataCardLabel: {
-    fontSize: 8.5,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginBottom: 4,
-    textAlign: 'center',
+  fineTuneLabel: {
+    fontSize: 10,
+    fontWeight: '700',
   },
-  dataCardValueRow: {
+  stepperGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  stepperBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  stepperBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  infoBoardCard: {
+    width: '100%',
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  boardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  boardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  dataCardValue: {
-    fontSize: 17,
+  boardTitle: {
+    fontSize: 12,
     fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  dataCardSub: {
-    fontSize: 8,
-    marginTop: 4,
     letterSpacing: 0.5,
+  },
+  coordsPill: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  boardDivider: {
+    height: 1,
+    backgroundColor: 'rgba(150, 150, 150, 0.15)',
+    marginVertical: 10,
+  },
+  boardDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  boardLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
+  },
+  cografiKuzeyVal: {
+    color: '#0d9488',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+  magSapmaVal: {
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  pusulaKuzeyVal: {
+    color: '#dc2626',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+  kibleSaatiRow: {
+    backgroundColor: 'rgba(217, 119, 6, 0.08)',
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginVertical: 3,
+  },
+  kibleSaatiLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  kibleSaatiVal: {
+    color: '#d97706',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  distanceVal: {
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  explanationToggle: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  explanationToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  explanationToggleText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  explanationBox: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+  explanationText: {
+    fontSize: 12,
+    lineHeight: 19,
   },
   footnoteText: {
     fontSize: 10,
     textAlign: 'center',
     lineHeight: 16,
-    marginTop: 20,
+    marginTop: 18,
     paddingHorizontal: 16,
   },
 });

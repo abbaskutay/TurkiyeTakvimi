@@ -1,24 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Repeat,
-  MoonStar,
-} from 'lucide-react-native';
+import { MoonStar } from 'lucide-react-native';
 import { ImportantDay } from '../types';
-import { COLORS, MOCK_IMPORTANT_DAYS } from '../constants';
+import { COLORS, MOCK_IMPORTANT_DAYS, mapCalendarToImportantDays } from '../constants';
+import { turkTakvimApi } from '../services/turkTakvimApi';
+import { storageService } from '../services/storageService';
 import { useTheme } from '../context/ThemeContext';
-
-type CalendarView = 'gregorian' | 'hijri';
 
 interface GunlerProps {
   isDarkMode?: boolean;
@@ -26,153 +20,64 @@ interface GunlerProps {
 
 export const Gunler: React.FC<GunlerProps> = () => {
   const { isDarkMode, theme } = useTheme();
-  const [viewType, setViewType] = useState<CalendarView>('gregorian');
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const currentYear = new Date().getFullYear();
   const [importantDays, setImportantDays] = useState<ImportantDay[]>(MOCK_IMPORTANT_DAYS);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const getApiKey = () => {
-    return process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY || '';
-  };
+  const fetchImportantDays = useCallback(async (forceRefresh = false) => {
+    // Serve the cached year list immediately; keeps the screen usable offline
+    // once this year has been fetched at least once.
+    const cached = await storageService.getCachedImportantDays(currentYear);
+    if (cached && cached.length > 0) {
+      setImportantDays(cached);
+      if (!forceRefresh) setLoading(false);
+    } else if (!forceRefresh) {
+      setLoading(true);
+    }
 
-  const fetchHolidays = async (year: number, type: CalendarView) => {
-    setLoading(true);
-    const apiKey = getApiKey();
-
-    if (apiKey && apiKey !== 'PLACEHOLDER_API_KEY') {
-      try {
-        const calendarName = type === 'gregorian' ? 'Gregorian' : 'Hijri';
-
-        const prompt = `List all major Turkish Islamic holidays and Kandil nights for the ${calendarName} year ${year}. 
-        Include events like Kandils (Regaib, Mirac, Berat, Mevlid), Ramadan start, Kadir Gecesi, and Eids (Ramazan & Kurban Bayrami).
-        Return strictly as a JSON array of objects with this schema: 
-        [{ "id": "string", "name": "Turkish Holiday Name", "dateGregorian": "Day Month Year", "dateHijri": "Day Month HijriYear" }]`;
-
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: 'application/json' },
-            }),
-          }
-        );
-
-        const resData = await response.json();
-        const text = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-        const data = JSON.parse(text);
-        if (Array.isArray(data) && data.length > 0) {
-          setImportantDays(data);
-          setLoading(false);
-          return;
-        }
-      } catch (error) {
-        console.error('Holiday fetch error:', error);
+    try {
+      const veriList = await turkTakvimApi.getCalendarDetail(
+        `${currentYear}-01-01`,
+        `${currentYear}-12-31`
+      );
+      const days = mapCalendarToImportantDays(veriList);
+      if (days.length > 0) {
+        setImportantDays(days);
+        await storageService.setCachedImportantDays(currentYear, days);
+      } else if (!cached) {
+        setImportantDays(MOCK_IMPORTANT_DAYS);
       }
+    } catch (error) {
+      console.error('Important days fetch error:', error);
+      if (!cached) {
+        setImportantDays(MOCK_IMPORTANT_DAYS);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    if (year === 2026 || year === 1447) {
-      setImportantDays(MOCK_IMPORTANT_DAYS);
-    } else {
-      setImportantDays([
-        { id: '1', name: 'Üç Ayların Başlangıcı', dateGregorian: `21 Aralık ${year - 1}`, dateHijri: '1 Receb' },
-        { id: '2', name: "Mi'râc Kandili Gecesi", dateGregorian: `15 Ocak ${year}`, dateHijri: '26 Receb' },
-        { id: '3', name: 'Berât Kandili Gecesi', dateGregorian: `2 Şubat ${year}`, dateHijri: "14 Şa'bân" },
-        { id: '4', name: "Ramazân-ı Şerîf'in Başlangıcı", dateGregorian: `19 Şubat ${year}`, dateHijri: '1 Ramazan' },
-        { id: '5', name: 'Kadir Gecesi', dateGregorian: `16 Mart ${year}`, dateHijri: '26 Ramazan' },
-        { id: '6', name: 'Ramazan Bayramı (1. Gün)', dateGregorian: `20 Mart ${year}`, dateHijri: '1 Şevval' },
-        { id: '7', name: 'Kurban Bayramı (1. Gün)', dateGregorian: `27 Mayıs ${year}`, dateHijri: '10 Zilhicce' },
-        { id: '8', name: 'Hicri Yılbaşı', dateGregorian: `16 Haziran ${year}`, dateHijri: '1 Muharrem' },
-        { id: '9', name: 'Aşûre Günü', dateGregorian: `25 Haziran ${year}`, dateHijri: '10 Muharrem' },
-        { id: '10', name: 'Mevlid Kandili', dateGregorian: `24 Ağustos ${year}`, dateHijri: '11 Rebiülevvel' },
-      ]);
-    }
-    setLoading(false);
-  };
+  }, [currentYear]);
 
   useEffect(() => {
-    fetchHolidays(selectedYear, viewType);
-  }, [selectedYear, viewType]);
+    fetchImportantDays();
+  }, [fetchImportantDays]);
 
-  const toggleView = () => {
-    const nextView = viewType === 'gregorian' ? 'hijri' : 'gregorian';
-    setViewType(nextView);
-    if (nextView === 'hijri') {
-      setSelectedYear(1447);
-    } else {
-      setSelectedYear(2026);
-    }
-  };
-
-  const years = useMemo(() => {
-    return Array.from({ length: 9 }, (_, i) => selectedYear - 4 + i);
-  }, [selectedYear]);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchImportantDays(true);
+  }, [fetchImportantDays]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header Banner */}
       <View style={[styles.headerBanner, { backgroundColor: theme.headerBg }]}>
         <Text style={styles.headerTitle}>MÜBAREK GÜNLER</Text>
-        <Text style={styles.headerSubtitle}>DİNİ TAKVİM {selectedYear}</Text>
+        <Text style={styles.headerSubtitle}>DİNİ TAKVİM</Text>
 
-        <View style={styles.yearNavigatorRow}>
-          <TouchableOpacity
-            onPress={() => setSelectedYear(p => p - 1)}
-            style={styles.yearArrowBtn}
-          >
-            <ChevronLeft size={20} color="#ffffff" />
-          </TouchableOpacity>
-
-          <View style={styles.yearCenterCol}>
-            <Text style={styles.yearBigText}>{selectedYear}</Text>
-            <TouchableOpacity onPress={toggleView} style={styles.calendarToggleBtn}>
-              <Repeat size={12} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.calendarToggleText}>
-                {viewType === 'gregorian' ? 'MİLADİ' : 'HİCRİ'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => setSelectedYear(p => p + 1)}
-            style={styles.yearArrowBtn}
-          >
-            <ChevronRight size={20} color="#ffffff" />
-          </TouchableOpacity>
+        <View style={styles.yearCenterCol}>
+          <Text style={styles.yearBigText}>{currentYear}</Text>
         </View>
-      </View>
-
-      {/* Year Selection Horizontal Strip */}
-      <View style={[styles.yearStripContainer, { backgroundColor: theme.card, borderBottomColor: theme.cardBorder }]}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.yearStripContent}
-        >
-          {years.map(y => (
-            <TouchableOpacity
-              key={y}
-              onPress={() => setSelectedYear(y)}
-              style={[
-                styles.yearChip,
-                selectedYear === y
-                  ? { backgroundColor: COLORS.primary, borderColor: COLORS.primary }
-                  : { backgroundColor: isDarkMode ? '#1a1a1a' : '#f3f4f6', borderColor: theme.cardBorder },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.yearChipText,
-                  { color: selectedYear === y ? '#ffffff' : theme.textSecondary },
-                ]}
-              >
-                {y}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
 
       {/* Holiday Cards List */}
@@ -180,7 +85,7 @@ export const Gunler: React.FC<GunlerProps> = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={[styles.loadingText, { color: theme.textMuted }]}>
-            Takvim güncelleniyor...
+            Dini günler güncelleniyor...
           </Text>
         </View>
       ) : (
@@ -189,15 +94,23 @@ export const Gunler: React.FC<GunlerProps> = () => {
           keyExtractor={(item, index) => item.id || `day-${index}`}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+            />
+          }
           renderItem={({ item }) => (
             <View style={[styles.holidayCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
               <View style={[styles.holidaySideBar, { backgroundColor: isDarkMode ? COLORS.accentRed : COLORS.primary }]} />
 
               <View style={styles.holidayCardBody}>
-                <View style={styles.holidayBadgeRow}>
+                {/* OnemliGun Turu Badge (Disabled for now) */}
+                {/* <View style={styles.holidayBadgeRow}>
                   <MoonStar size={14} color={isDarkMode ? COLORS.accentRed : COLORS.primary} />
                   <Text style={[styles.holidayBadgeText, { color: theme.textMuted }]}>DİNİ GÜN</Text>
-                </View>
+                </View> */}
 
                 <Text style={[styles.holidayNameText, { color: theme.textPrimary }]}>
                   {item.name}
@@ -205,12 +118,7 @@ export const Gunler: React.FC<GunlerProps> = () => {
 
                 <View style={[styles.datesFooterRow, { borderTopColor: theme.cardBorder }]}>
                   <View style={styles.dateCol}>
-                    <Text
-                      style={[
-                        styles.dateMainValue,
-                        { color: viewType === 'gregorian' ? theme.textPrimary : theme.textMuted },
-                      ]}
-                    >
+                    <Text style={[styles.dateMainValue, { color: theme.textPrimary }]}>
                       {item.dateGregorian}
                     </Text>
                     <Text style={[styles.dateSubLabel, { color: theme.textMuted }]}>MİLADİ</Text>
@@ -219,12 +127,7 @@ export const Gunler: React.FC<GunlerProps> = () => {
                   <View style={[styles.dateDivider, { backgroundColor: theme.cardBorder }]} />
 
                   <View style={[styles.dateCol, { alignItems: 'flex-end' }]}>
-                    <Text
-                      style={[
-                        styles.dateMainValue,
-                        { color: viewType === 'hijri' ? theme.textPrimary : theme.textMuted },
-                      ]}
-                    >
+                    <Text style={[styles.dateMainValue, { color: theme.textPrimary }]}>
                       {item.dateHijri}
                     </Text>
                     <Text style={[styles.dateSubLabel, { color: theme.textMuted }]}>HİCRİ</Text>
@@ -270,64 +173,16 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     letterSpacing: 2,
     marginTop: 2,
-    marginBottom: 16,
-  },
-  yearNavigatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
-  },
-  yearArrowBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 8,
   },
   yearCenterCol: {
     alignItems: 'center',
   },
   yearBigText: {
-    fontSize: 44,
+    fontSize: 40,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: -1.5,
-  },
-  calendarToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginTop: 6,
-    gap: 6,
-  },
-  calendarToggleText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 1.5,
-  },
-  yearStripContainer: {
-    borderBottomWidth: 1,
-    paddingVertical: 10,
-  },
-  yearStripContent: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  yearChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  yearChipText: {
-    fontSize: 12,
-    fontWeight: '800',
+    letterSpacing: -1,
   },
   loadingContainer: {
     flex: 1,

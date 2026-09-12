@@ -1,53 +1,73 @@
-# 🕌 Ezan Vakti & Dini Takvim Mobil Uygulaması (Türk Takvimi API Entegreli)
+# 🕌 Türkiye Takvimi (Ezan Vakti & Dini Takvim)
 
-Modern React Native ve Expo SDK 52 kullanılarak geliştirilmiş, **resmi Türk Takvimi API** verileriyle %100 uyumlu çalışan, gelişmiş kıble pusulası, vakit hatırlatıcıları ve yapraklı takvim içeriği sunan mobil ezan vakti uygulaması.
+Modern React Native ve Expo kullanılarak geliştirilmiş, **resmi Türk Takvimi API** verileriyle %100 uyumlu çalışan, interaktif uydu haritalı kıble tayini, gelişmiş kıble pusulası, vakit hatırlatıcıları, çevrimdışı önbellek desteği ve yapraklı takvim içeriği sunan mobil ezan vakti uygulaması.
 
 ---
 
 ## ✨ Öne Çıkan Özellikler
 
-- 🕋 **Resmi Türk Takvimi API Entegrasyonu**: Türkiye ve dünya genelindeki tüm şehirler için yıllık vakit verileri.
-- ⏰ **Detaylı 18 Vakit Listesi**:
+### 1. 🕋 Resmi Türk Takvimi API Entegrasyonu & 18 Vakit
+- **Yıllık Veri Akışı**: Türkiye ve dünya genelindeki binlerce il ve ilçe için Türk Takvimi resmi vakit hesaplamaları.
+- **Detaylı 18 Vakit Gösterimi**:
   - *Ana Vakitler*: İmsak, Güneş, Öğle, İkindi, Akşam, Yatsı.
   - *Detaylı Vakitler*: Sabah, İşrak, Dahve-i Kübra, Kerâhet, Asr-ı evvel, Asr-ı sânî, İsfirâr-ı şems, İştibâk-i nücûm, İşâ-i evvel, İşâ-i sânî, Gece Yarısı, Teheccüd, Seher, Kıble Saati.
-- ⏳ **Canlı Geri Sayım & İlerleme Çubuğu**: Sıradaki vakte kalan süreyi saniye saniye takip eden dinamik kart.
-- 🔔 **Gelişmiş Bildirim & Ezan Alarmları**:
-  - `expo-notifications` ile arka planda ve kilit ekranında çalışan yerel alarmlar.
-  - Her vakit için özel süre seçimi (Vaktinde, 5, 10, 15, 30 dakika önce).
-- 🧭 **Canlı Hassas Kıble Pusulası**:
-  - `expo-location` ve cihazın manyetometre sensörleri ile canlı dönen pusula kadranı.
-  - Kabe yönüne hizalandığında yeşil görsel geribildirim.
-  - Türk Takvimi resmi kıble açısı ve manyetik sapma verileri.
-- 📜 **Günün Takvim Yaprağı İçerikleri**: Günün Sözü, Tarihte Bugün (Günün Olayı) ve Takvim Arka Yüzü okuma makaleleri.
-- 🌍 **Şehir Yönetimi & GPS Konumu**:
-  - Otomatik GPS konumu ile en yakın şehri bulma.
-  - Canlı arama ile binlerce şehir ve ilçe ekleme.
-- 📅 **Dini Günler & Mübarek Geceler Takvimi**: Miladi ve Hicri yıl seçenekli Kandil ve Bayram tarihleri.
-- 🌙 **Otomatik Karanlık / Aydınlık Mod**: Sistem temasıyla uyumlu veya manuel geçişli şık tasarım.
+- **Geri Sayım & İlerleme**: İçinde bulunulan vakti ve bir sonraki vakte kalan süreyi saniye hassasiyetinde gösteren dinamik sayaç ve ilerleme çubuğu.
+
+### 2. 🧭 Çift Modlu Kıble Bulucu (Pusula & Uydu Haritası)
+- **namazvakti.com Trigonometrisi**: Resmi `theQibla.php` algoritması ile Coğrafi Kuzey Açısı, Magnetik Sapma Açısı ve Pusula Kuzey Açısı hesaplaması.
+- **Canlı Pusula Modu**: Cihaz manyetometresi ve jiroskopu ile gerçek zamanlı dönen kadran, gerçek kuzey (True Heading) ve manyetik kuzey desteği, Kâbe istikametine hizalandığında sesli/titreşimli (haptic) geribildirim.
+- **İnteraktif Uydu Haritası (Leaflet + Esri World Imagery)**: Bulunduğunuz konumu çatısına kadar gösteren yüksek çözünürlüklü uydu görüntüsü, Kâbe'ye uzanan dinamik Büyük Çember (Great-Circle) yeşil kılavuz çizgisi ve Kâbe hedef pini.
+
+### 3. 💾 Çevrimdışı (Offline-First) Mimari & Akıllı Önbellek
+- **Kesintisiz Kullanım**: Çekilen vakitler, şehir bilgileri ve takvim yaprakları `@react-native-async-storage/async-storage` üzerinde versiyonlu ve zaman damgalı olarak önbelleğe alınır. İnternet bağlantısı kesilse dahi veriler anında görüntülenir.
+- **Ağ Dayanıklılığı**: `safeFetch` HTTPS ile bağlantı kurar; SSL el sıkışması veya sertifika aksaklıklarında otomatik HTTP fallback ve yeniden deneme (retry) uygular.
+- **XML / CDATA Desteği**: `fast-xml-parser` ile takvim detayları ve önemli dini günler tam metin olarak çözülür.
+
+### 4. 🔔 Gelişmiş Ezan & Vakit Bildirimleri
+- `expo-notifications` ile arka planda ve kilit ekranında çalışan yerel bildirimler.
+- Her vakit için bağımsız bildirim açma/kapatma ve alarm zamanı seçimi (*Vaktinde*, *5*, *10*, *15*, *30 dakika önce*).
+
+### 5. 📜 Günün Takvim Yaprağı & Dini Günler
+- **Günün Takvimi**: Günün Sözü ve Tarihte Bugün (Günün Olayı).
+- **Mübarek Günler Listesi**: 2026 yılı ve sonraki yıllar için Kandiller, Ramazan, Kurban Bayramı, Aşûre ve dini günlerin Miladi ve Hicri tarihleri; aşağı çekip yenileme (pull-to-refresh) desteği.
+
+### 6. 🌍 Şehir Yönetimi & GPS Konum Bulma
+- GPS üzerinden tek dokunuşla en yakın yerleşimi tespit etme.
+- Ülke, eyalet ve şehir hiyerarşik seçimi veya anlık arama (canlı arama & AbortSignal iptal koruması).
+- Birden fazla şehir kaydetme ve aralarında hızlı geçiş yapma.
+
+### 7. 🌓 Modern Tasarım & Tema
+- Sistem temasıyla otomatik senkronize olan veya elle seçilebilen Karanlık (Dark) ve Aydınlık (Light) mod.
+- Ergonomik Safe Area ve responsive kart tasarımları.
 
 ---
 
 ## 🛠️ Teknoloji Yığını (Tech Stack)
 
-- **Framework**: [React Native](https://reactnative.dev/) + [Expo SDK 52](https://docs.expo.dev/)
-- **Dil**: [TypeScript](https://www.typescriptlang.org/)
-- **Ikonlar**: [Lucide React Native](https://lucide.dev/) & [React Native SVG](https://github.com/software-mansion/react-native-svg)
-- **Konum & Sensörler**: `expo-location`
-- **Bildirimler**: `expo-notifications`
-- **Depolama**: `@react-native-async-storage/async-storage`
-- **Tasarım**: Safe Area Context & Responsive Flexbox UI
+| Katman | Teknoloji / Kütüphane | Açıklama |
+| :--- | :--- | :--- |
+| **Çekirdek** | [React Native](https://reactnative.dev/) + [Expo SDK 52](https://docs.expo.dev/) | Çapraz platform mobil uygulama çatısı |
+| **Dil** | [TypeScript](https://www.typescriptlang.org/) | Tip güvenliği ve ölçeklenebilir kodlama |
+| **Durum Yönetimi** | React Context (`CityContext`, `ThemeContext`) | Modüler ve hafif global state |
+| **Harita & WebView** | `react-native-webview` + Leaflet + Esri | Uydu destekli Kıble haritası |
+| **Sensörler & GPS** | `expo-location` | GPS konum tespiti ve pusula manyetometre dinleyicisi |
+| **Bildirimler** | `expo-notifications` | Yerel bildirim ve alarm yönetimi |
+| **Önbellek** | `@react-native-async-storage/async-storage` | Çevrimdışı veri kalıcılığı |
+| **XML İşleme** | `fast-xml-parser` | Türk Takvimi XML ve CDATA verilerinin ayrıştırılması |
+| **İkonlar** | `lucide-react-native` & `react-native-svg` | Modern vektörel arayüz ikonları |
+| **Test Altyapısı** | Node.js Test Runner + `tsx` | 62 adet birim testi ve canlı entegrasyon testleri |
 
 ---
 
 ## 📋 Ön Gereksinimler (Prerequisites)
 
-Uygulamayı yerel ortamınızda derleyip çalıştırmadan önce sisteminizde aşağıdaki araçların kurulu olması gerekir:
+Uygulamayı derleyip çalıştırmadan önce sisteminizde aşağıdaki araçların kurulu olması gerekir:
 
-1. **Node.js**: `v18.0.0` veya üzeri (LTS sürümü önerilir) -> [nodeJS.org](https://nodejs.org/)
+1. **Node.js**: `v18.0.0` veya üzeri (LTS sürümü önerilir) -> [nodejs.org](https://nodejs.org/)
 2. **Paket Yöneticisi**: `npm` (Node ile birlikte gelir) veya `yarn` / `pnpm`
 3. **Expo Go Mobil Uygulaması**:
-   - iOS: App Store'dan **Expo Go** indirin.
-   - Android: Google Play Store'dan **Expo Go** indirin.
+   - iOS: App Store'dan **Expo Go**
+   - Android: Google Play Store'dan **Expo Go**
 4. **Geliştirme Ortamı (Opsiyonel - Emülatör / Simülatör için)**:
    - **Android**: Android Studio & Android Virtual Device (AVD).
    - **iOS (Yalnızca macOS)**: Xcode & iOS Simulator.
@@ -59,8 +79,8 @@ Uygulamayı yerel ortamınızda derleyip çalıştırmadan önce sisteminizde a�
 ### 1. Projeyi Klonlayın ve Klasöre Girin
 
 ```bash
-git clone https://github.com/username/ezan-vakti.git
-cd ezan-vakti
+git clone https://github.com/username/TurkiyeTakvimi.git
+cd TurkiyeTakvimi
 ```
 
 ### 2. Bağımlılıkları Yükleyin
@@ -71,81 +91,125 @@ npm install
 
 ---
 
-## 📱 Uygulamayı İşletim Sistemlerine Göre Çalıştırma
+## 📱 Çalıştırma Yöntemleri
 
-### 📲 A) Expo Go ile Mobil Cihazda Çalıştırma (Windows & macOS)
+### 📲 A) Expo Go ile Mobil Cihazda Çalıştırma
 
 1. Terminalde geliştirici sunucusunu başlatın:
    ```bash
+   npm start
+   # veya
    npx expo start -c
    ```
-2. Ekranda beliren **QR Kodu**:
+2. Terminalde veya tarayıcıda beliren **QR Kodu**:
    - **Android**: Expo Go uygulamasını açıp *"Scan QR Code"* seçeneğiyle okutun.
-   - **iOS**: Telefonun yerel **Kamera** uygulamasını açıp QR koda doğrultun ve gelen bildirime dokunun.
+   - **iOS**: Yerel Kamera uygulamasını açıp QR kodu taratın ve gelen bildirime dokunun.
 
 ---
 
-### 🤖 B) Android Emülatörde Çalıştırma (Windows & macOS)
+### 🤖 B) Android Cihaz veya Emülatörde Çalıştırma
 
-1. **Android Studio**'yu açın ve bir Sanal Cihaz (AVD - Android Emulator) başlatın.
-2. Terminalde Expo sunucusunu çalıştırın:
+1. Android Studio'da Sanal Cihazınızı (AVD) başlatın veya USB hata ayıklama modunda fiziksel cihazınızı bağlayın.
+2. Expo sunucusu açıkken terminalde **`a`** tuşuna basın veya doğrudan yerel build komutunu çalıştırın:
    ```bash
-   npx expo start
+   npm run android
    ```
-3. Terminal aktifken klavyeden **`a`** tuşuna basın. Expo CLI otomatik olarak emülatöre bağlanacak ve uygulamayı yükleyecektir.
-
-#### Yerel Android Derlemesi Yapmak İstiyorsanız (Expo Prebuild / Native Run):
-```bash
-npx expo run:android
-```
 
 ---
 
-### 🍎 C) iOS Simülatörde Çalıştırma (Yalnızca macOS)
+### 🍎 C) iOS Simülatörde Çalıştırma (macOS)
 
-1. macOS cihazınızda **Xcode** uygulamasının kurulu olduğundan ve Command Line Tools'un etkinleştirildiğinden emin olun.
-2. Terminalde Expo sunucusunu çalıştırın:
+1. Xcode ve Simulator'ün kurulu olduğundan emin olun.
+2. Expo sunucusu açıkken terminalde **`i`** tuşuna basın veya doğrudan çalıştırın:
    ```bash
-   npx expo start
+   npm run ios
    ```
-3. Terminal aktifken klavyeden **`i`** tuşuna basın. Expo CLI otomatik olarak varsayılan iOS Simülatörünü açacaktır.
-
-#### Yerel iOS Derlemesi Yapmak İstiyorsanız (macOS):
-```bash
-npx expo run:ios
-```
 
 ---
 
 ### 🌐 D) Web Tarayıcısında Çalıştırma
 
 ```bash
-npx expo start --web
+npm run web
 ```
-veya terminal açıkken **`w`** tuşuna basın.
 
 ---
 
-## 📂 Proje Yapısı (Directory Structure)
+## 🧪 Testler ve Doğrulama (Testing)
+
+Projede hem birim testleri (unit tests) hem de canlı API entegrasyon test komutları mevcuttur:
+
+### Otomatik Birim Testlerini Çalıştırma (Unit Tests)
+
+Node.js dahili test koşucusu ve `tsx` altyapısı ile yazılmış 62 birim testini çalıştırmak için:
+
+```bash
+npm test
+```
+
+Test edilen modüller:
+- `constants.test.ts`: Vakit sıralamaları, isimleri ve varsayılan ayarlar.
+- `timerLogic.test.ts`: Aktif vakit tespiti, geri sayım hesaplamaları ve gün devri (rollover).
+- `qiblaUtils.test.ts`: Namaz Vakti formülü, manyetik sapma, büyük çember koordinatları ve koordinat çözümleme.
+- `storageService.test.ts`: Önbelleğe alma, okuma, TTL ve kalıcılık doğrulamaları.
+- `turkTakvimApi.test.ts`: Güvenli fetch, HTTPS/HTTP fallback, CDATA ve HTML varlık çözümleme, API endpoint mock testleri.
+- `notificationService.test.ts`: Bildirim planlama ve parametre hesaplama.
+
+### Canlı API Entegrasyon Testi (Live Integration Test)
+
+Türk Takvimi sunucularına gerçek istekler göndererek tüm endpoint'leri canlı test etmek için:
+
+```bash
+npm run test:live
+```
+
+---
+
+## 📂 Proje Dizin Yapısı (Project Structure)
 
 ```text
-ezan-vakti/
-├── assets/                  # Görseller, ikonlar ve fontlar
-├── components/              # React Native UI Bileşenleri
-│   ├── Vakitler.tsx         # Ana Vakitler, 18 Vakit Grid & Geri Sayım
-│   ├── Sehirler.tsx         # Şehir Arama, Ekleme/Çıkarma & GPS
-│   ├── Kible.tsx            # Canlı Pusula, Sensör & Hizalama
-│   └── Gunler.tsx           # Dini Günler, Hicri/Miladi Takvim
-├── services/                # API ve Arka Plan Servisleri
-│   ├── turkTakvimApi.ts     # Türk Takvimi XML/JSON API Entegrasyonu
-│   └── notificationService.ts # Expo Yerel Bildirim Zamanlayıcı
-├── constants.tsx            # Renkler, Sabitler & Dönüştürücü Helper'lar
-├── types.ts                 # TypeScript Arayüz ve Tip Tanımlamaları
-├── App.tsx                  # Ana Giriş ve Tab Bar Navigasyonu
-├── index.js                 # Expo Root Register
-├── app.json                 # Expo Proje Yapılandırması
-├── package.json             # Bağımlılıklar ve Komutlar
-└── README.md                # Proje Dokümantasyonu
+TurkiyeTakvimi/
+├── __tests__/                  # Kapsamlı birim test paketi (62 test)
+│   ├── mocks/                  # Expo ve ortam mock'ları
+│   ├── setup.ts                # Test ortamı başlatıcı
+│   ├── constants.test.ts
+│   ├── notificationService.test.ts
+│   ├── qiblaUtils.test.ts
+│   ├── storageService.test.ts
+│   ├── timerLogic.test.ts
+│   └── turkTakvimApi.test.ts
+├── android/                    # Yerel Android derleme dosyaları (Prebuild)
+├── assets/                     # İkonlar, logolar ve medya dosyaları
+├── components/                 # React Native UI Bileşenleri
+│   ├── vakitler/               # Vakitler ekranı alt bileşenleri
+│   │   ├── CountdownBanner.tsx # Canlı sayaç ve vakit ilerleme çubuğu
+│   │   ├── GridPrayerCard.tsx  # 18 detaylı vakit grid kartı
+│   │   ├── PrayerListCard.tsx  # 6 ana vakit kartı
+│   │   └── ReminderModal.tsx   # Hatırlatıcı ve alarm ayar penceresi
+│   ├── Vakitler.tsx            # Ana Vakitler ekranı
+│   ├── Sehirler.tsx            # Şehir Arama, Konum (GPS) & Seçim ekranı
+│   ├── Kible.tsx               # Çift modlu Pusula & Uydu Haritalı Kıble ekranı
+│   └── Gunler.tsx              # Dini Günler ve Takvim Yaprağı ekranı
+├── context/                    # React Context durum yöneticileri
+│   ├── CityContext.tsx         # Seçili şehir, kayıtlı şehirler ve GPS yönetimi
+│   └── ThemeContext.tsx        # Aydınlık/Karanlık tema durumu
+├── hooks/                      # Özel React Kancaları (Custom Hooks)
+│   ├── useCompassSensor.ts     # Manyetometre, gerçek kuzey ve açı kancası
+│   ├── usePrayerTimes.ts       # Vakitler, offline önbellek ve retry kancası
+│   └── useTimer.ts             # Geri sayım ve dinamik yenileme zamanlayıcısı
+├── services/                   # Servis Katmanı
+│   ├── turkTakvimApi.ts        # Türk Takvimi API istemcisi, XML/CDATA ayrıştırıcı
+│   ├── storageService.ts       # AsyncStorage önbellek ve kalıcı depolama
+│   └── notificationService.ts  # Expo yerel bildirim ve alarm planlayıcısı
+├── utils/                      # Yardımcı Hesaplama Fonksiyonları
+│   └── qiblaUtils.ts           # Kıble açısı, büyük çember hattı & Leaflet harita HTML
+├── test_all_features.ts        # Canlı uçtan uca özellik test scripti
+├── constants.tsx               # Renk paletleri, sabitler ve varsayılan veriler
+├── types.ts                    # TypeScript tip tanımları
+├── App.tsx                     # Kök navigasyon ve tab bar
+├── app.json                    # Expo konfigürasyonu ve izin tanımları
+├── package.json                # Proje bağımlılıkları ve npm script'leri
+└── README.md                   # Proje Dokümantasyonu
 ```
 
 ---
@@ -153,18 +217,21 @@ ezan-vakti/
 ## ⚙️ Sorun Giderme (Troubleshooting)
 
 ### Önbellek Temizleme (Cache Reset)
-Metro Bundler önbelleğinden kaynaklanan beklenmedik paketleme hatalarında sunucuyu önbelleği temizleyerek başlatın:
-
+Metro Bundler önbelleğinden kaynaklanan beklenmedik paketleme veya modül çözümleme hatalarında sunucuyu temizleyerek başlatın:
 ```bash
 npx expo start -c
 ```
 
+### Konum ve Pusula İzinleri
+- **Kıble Pusulası**: Cihazın manyetometre ve jiroskop sensörlerinin çalışması için konum iznine (`expo-location`) ihtiyaç duyulur. Emülatörlerde manyetik sensör bulunmadığından pusula açısı sabit kalabilir; gerçek cihazda test edilmesi önerilir.
+- **Uydu Haritası**: Haritanın açılabilmesi için internet bağlantısı ve `react-native-webview` gereklidir.
+
 ### Bildirim İzinleri
-Android 13+ ve iOS cihazlarda bildirimlerin çalışabilmesi için cihaz ayarlarından **Expo Go** veya derlenen uygulama için **Bildirim İzninin** açık olması gerekmektedir.
+Android 13+ ve iOS cihazlarda bildirimlerin çalışabilmesi için sistem ayarlarından uygulamaya bildirim izni verilmelidir.
 
 ---
 
-## 📜 Lisans
+## 📜 Lisans & Kaynakça
 
-Bu proje MIT Lisansı altında sunulmaktadır.
-Dini vakit verileri ve takvim yazıları resmi **[Türk Takvimi](https://www.turktakvim.com)** servislerinden çekilmektedir.
+- Bu proje MIT Lisansı altında geliştirilmektedir.
+- Dini vakit hesaplamaları ve takvim içerikleri resmi **[Türk Takvimi](https://www.turktakvim.com)** ve **[Namaz Vakti](https://www.namazvakti.com)** servisleri kaynak alınarak hazırlanmıştır.

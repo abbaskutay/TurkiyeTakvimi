@@ -1,18 +1,57 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { City, ReminderConfig } from '../types';
-import { ApiVakitItem } from './turkTakvimApi';
+import { City, ImportantDay, ReminderConfig } from '../types';
+import { ApiTakvimVeri, ApiVakitResponse } from './turkTakvimApi';
 
 const KEYS = {
   THEME: 'ezan_theme',
   SAVED_CITIES: 'ezan_saved_cities',
   PRAYER_REMINDERS: 'prayer_reminders_v3',
   GLOBAL_REMINDERS_ENABLED: 'global_reminders_enabled',
-  VAKIT_CACHE_PREFIX: 'vakit_data_',
+  VAKIT_CACHE_PREFIX: 'vakit_response_v2_',
+  CALENDAR_DAY_CACHE_PREFIX: 'calendar_day_v2_',
+  IMPORTANT_DAYS_CACHE_PREFIX: 'important_days_v2_',
 } as const;
 
-export interface CachedVakitData {
+interface CacheEntry<T> {
   timestamp: number;
-  data: ApiVakitItem[];
+  data: T;
+}
+
+/**
+ * Reads a cached, timestamped entry, ignoring age — offline callers should
+ * decide for themselves whether stale data is still worth showing.
+ *
+ * @param key full AsyncStorage key
+ * @returns the cached entry, or null if missing/corrupt
+ */
+async function readCache<T>(key: string): Promise<CacheEntry<T> | null> {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.timestamp === 'number' && 'data' in parsed) {
+      return parsed as CacheEntry<T>;
+    }
+    return null;
+  } catch (e) {
+    console.error(`storageService cache read error (${key}):`, e);
+    return null;
+  }
+}
+
+/**
+ * Writes a timestamped cache entry.
+ *
+ * @param key full AsyncStorage key
+ * @param data value to cache
+ */
+async function writeCache<T>(key: string, data: T): Promise<void> {
+  try {
+    const entry: CacheEntry<T> = { timestamp: Date.now(), data };
+    await AsyncStorage.setItem(key, JSON.stringify(entry));
+  } catch (e) {
+    console.error(`storageService cache write error (${key}):`, e);
+  }
 }
 
 export const storageService = {
@@ -116,40 +155,39 @@ export const storageService = {
   },
 
   /**
-   * Prayer Time Data Cache with TTL (default 24h)
+   * Prayer time + city info cache, per city. Used as the offline fallback when
+   * a live fetch fails, so reads ignore age on purpose.
    */
-  async getCachedVakitData(cityID: string, maxAgeMs: number = 24 * 60 * 60 * 1000): Promise<ApiVakitItem[] | null> {
-    try {
-      const raw = await AsyncStorage.getItem(`${KEYS.VAKIT_CACHE_PREFIX}${cityID}`);
-      if (!raw) return null;
-
-      const parsed = JSON.parse(raw);
-      // Support legacy array storage or structured CachedVakitData
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-      if (parsed && Array.isArray(parsed.data)) {
-        const age = Date.now() - (parsed.timestamp || 0);
-        if (age < maxAgeMs) {
-          return parsed.data;
-        }
-      }
-      return null;
-    } catch (e) {
-      console.error('storageService.getCachedVakitData error:', e);
-      return null;
-    }
+  async getCachedVakitResponse(cityID: string): Promise<ApiVakitResponse | null> {
+    const entry = await readCache<ApiVakitResponse>(`${KEYS.VAKIT_CACHE_PREFIX}${cityID}`);
+    return entry?.data ?? null;
   },
 
-  async setCachedVakitData(cityID: string, data: ApiVakitItem[]): Promise<void> {
-    try {
-      const payload: CachedVakitData = {
-        timestamp: Date.now(),
-        data,
-      };
-      await AsyncStorage.setItem(`${KEYS.VAKIT_CACHE_PREFIX}${cityID}`, JSON.stringify(payload));
-    } catch (e) {
-      console.error('storageService.setCachedVakitData error:', e);
-    }
+  async setCachedVakitResponse(cityID: string, data: ApiVakitResponse): Promise<void> {
+    await writeCache(`${KEYS.VAKIT_CACHE_PREFIX}${cityID}`, data);
+  },
+
+  /**
+   * Single-day calendar entry cache (GununSozu, GununOlayi, OnemliGun, etc.), keyed by YYYY-MM-DD.
+   */
+  async getCachedCalendarDay(dateKey: string): Promise<ApiTakvimVeri | null> {
+    const entry = await readCache<ApiTakvimVeri>(`${KEYS.CALENDAR_DAY_CACHE_PREFIX}${dateKey}`);
+    return entry?.data ?? null;
+  },
+
+  async setCachedCalendarDay(dateKey: string, data: ApiTakvimVeri): Promise<void> {
+    await writeCache(`${KEYS.CALENDAR_DAY_CACHE_PREFIX}${dateKey}`, data);
+  },
+
+  /**
+   * Yearly religious-day list cache (Gunler screen), keyed by Gregorian year.
+   */
+  async getCachedImportantDays(year: number): Promise<ImportantDay[] | null> {
+    const entry = await readCache<ImportantDay[]>(`${KEYS.IMPORTANT_DAYS_CACHE_PREFIX}${year}`);
+    return entry?.data ?? null;
+  },
+
+  async setCachedImportantDays(year: number, data: ImportantDay[]): Promise<void> {
+    await writeCache(`${KEYS.IMPORTANT_DAYS_CACHE_PREFIX}${year}`, data);
   },
 };

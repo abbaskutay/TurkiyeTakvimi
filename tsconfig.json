@@ -10,5 +10,10 @@
         "./*"
       ]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "__tests__",
+    "test_all_features.ts"
+  ]
 }

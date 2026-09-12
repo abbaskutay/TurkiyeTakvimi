@@ -1,5 +1,5 @@
 import { PrayerTime, DetailedPrayerTime, City, ImportantDay, AppTab } from './types';
-import { ApiVakitItem } from './services/turkTakvimApi';
+import { ApiVakitItem, ApiTakvimVeri, extractApiText } from './services/turkTakvimApi';
 
 export const COLORS = {
   primary: '#a01826',
@@ -140,6 +140,109 @@ export function mapVakitToGridPrayerTimes(vakit: ApiVakitItem): DetailedPrayerTi
   ];
 }
 
+const GREGORIAN_MONTHS_TR: string[] = [
+  'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+  'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+];
+
+/** Maps the API's uppercase Hijri month tokens to their conventional Turkish display form. */
+const HICRI_MONTH_DISPLAY: Record<string, string> = {
+  'MUHARREM': 'Muharrem',
+  'SAFER': 'Safer',
+  "REBÎ'UL-EVVEL": 'Rebiülevvel',
+  "REBÎ'UL-ÂHIR": 'Rebiülâhir',
+  'CEMÂZİL-EVVEL': 'Cemaziyelevvel',
+  'CEMÂZİL-ÂHIR': 'Cemaziyelâhir',
+  'RECEB': 'Receb',
+  "ŞA'BÂN": "Şa'bân",
+  'RAMEZÂN': 'Ramazan',
+  'ŞEVVÂL': 'Şevval',
+  "ZİL-KA'DE": 'Zilkade',
+  'ZİL-HİCCE': 'Zilhicce',
+};
+
+/**
+ * Formats an API date (YYYY-MM-DD) as a Turkish Gregorian date string.
+ *
+ * @param tarih date in YYYY-MM-DD form
+ * @returns e.g. "15 Ocak 2026"
+ */
+export function formatGregorianDate(tarih: string): string {
+  const [year, month, day] = tarih.split('-').map(Number);
+  const monthName = GREGORIAN_MONTHS_TR[month - 1] || '';
+  return `${day} ${monthName} ${year}`;
+}
+
+/**
+ * Splits a raw HicriTarih string (e.g. "26  RECEB  1447") into its day/month/year parts.
+ *
+ * @param hicriRaw raw HicriTarih value from the API
+ * @returns day, display-cased month, and year as strings
+ */
+function parseHicriParts(hicriRaw: string): { day: string; month: string; year: string } {
+  const parts = hicriRaw.trim().split(/\s+/);
+  const day = parts[0] || '';
+  const year = parts[parts.length - 1] || '';
+  const monthKey = parts.slice(1, -1).join(' ');
+  const month = HICRI_MONTH_DISPLAY[monthKey] || monthKey;
+  return { day, month, year };
+}
+
+/**
+ * Formats a raw HicriTarih string as a Turkish display string.
+ *
+ * @param hicriRaw raw HicriTarih value from the API
+ * @returns e.g. "26 Receb 1447"
+ */
+export function formatHicriDate(hicriRaw: string): string {
+  const { day, month, year } = parseHicriParts(hicriRaw);
+  return `${day} ${month} ${year}`.trim();
+}
+
+/**
+ * Extracts the Hijri year from a raw HicriTarih string.
+ *
+ * @param hicriRaw raw HicriTarih value from the API
+ * @returns the Hijri year, or 0 if it could not be parsed
+ */
+export function parseHicriYear(hicriRaw: string): number {
+  return parseInt(parseHicriParts(hicriRaw).year, 10) || 0;
+}
+
+/**
+ * Builds the religious day list from a tip=takvim response,
+ * filtering for entries whose OnemliGun element has Turu="Dini" (or valid Baslik).
+ *
+ * @param veriList calendar day entries from turkTakvimApi.getCalendarDetail
+ * @param hicriYearFilter optional Hijri year filter
+ * @returns the important-day list, in chronological order
+ */
+export function mapCalendarToImportantDays(veriList: ApiTakvimVeri[], hicriYearFilter?: number): ImportantDay[] {
+  return veriList
+    .filter(v => {
+      const onemliGun = v.OnemliGun?.['@attributes'];
+      if (!onemliGun?.Baslik) return false;
+      if (onemliGun.Turu && onemliGun.Turu.trim().toLowerCase() !== 'dini') {
+        return false;
+      }
+      return true;
+    })
+    .filter(v => {
+      if (hicriYearFilter == null) return true;
+      return parseHicriYear(extractApiText(v.HicriTarih)) === hicriYearFilter;
+    })
+    .map(v => {
+      const tarih = v['@attributes']?.Tarih || '';
+      const hicriRaw = extractApiText(v.HicriTarih);
+      return {
+        id: tarih,
+        name: v.OnemliGun!['@attributes']!.Baslik!,
+        dateGregorian: tarih ? formatGregorianDate(tarih) : '',
+        dateHijri: hicriRaw ? formatHicriDate(hicriRaw) : '',
+      };
+    });
+}
+
 export const MOCK_CITIES: City[] = [
   {
     id: '16741',
@@ -153,14 +256,26 @@ export const MOCK_CITIES: City[] = [
 ];
 
 export const MOCK_IMPORTANT_DAYS: ImportantDay[] = [
-  { id: '1', name: 'Üç Ayların Başlaması', dateGregorian: '21 Aralık 2025', dateHijri: '1 Receb 1447' },
-  { id: '2', name: "Mi'râc Kandili Gecesi", dateGregorian: '15 Ocak 2026', dateHijri: '26 Receb 1447' },
-  { id: '3', name: 'Berât Kandili Gecesi', dateGregorian: '2 Şubat 2026', dateHijri: '14 Şa\'bân 1447' },
-  { id: '4', name: 'Ramezân-ı Şerîf\'in Başlangıcı', dateGregorian: '19 Şubat 2026', dateHijri: '1 Ramezân 1447' },
-  { id: '5', name: 'Kadir Gecesi', dateGregorian: '16 Mart 2026', dateHijri: '26 Ramezân 1447' },
-  { id: '6', name: 'Ramezân Bayramı 1. Günü', dateGregorian: '20 Mart 2026', dateHijri: '1 Şevvâl 1447' },
-  { id: '7', name: 'Ramezân Bayramı 2. Günü', dateGregorian: '21 Mart 2026', dateHijri: '2 Şevvâl 1447' },
-  { id: '8', name: 'Kurban Bayramı 1. Günü', dateGregorian: '27 Mayıs 2026', dateHijri: '10 Zilhicce 1447' },
+  { id: '2026-01-15', name: "Mi'râc Kandili Gecesi", dateGregorian: '15 Ocak 2026', dateHijri: '26 Receb 1447' },
+  { id: '2026-02-02', name: 'Berât Kandili Gecesi', dateGregorian: '2 Şubat 2026', dateHijri: "14 Şa'bân 1447" },
+  { id: '2026-02-19', name: "Ramezân-ı Şerîf'in Başlangıcı", dateGregorian: '19 Şubat 2026', dateHijri: '1 Ramazan 1447' },
+  { id: '2026-03-16', name: 'Kadir Gecesi', dateGregorian: '16 Mart 2026', dateHijri: '26 Ramazan 1447' },
+  { id: '2026-03-19', name: 'Fıtr Bayramı Gecesi', dateGregorian: '19 Mart 2026', dateHijri: '29 Ramazan 1447' },
+  { id: '2026-03-20', name: 'Fıtr (Ramazan) Bayramı 1. Günü', dateGregorian: '20 Mart 2026', dateHijri: '1 Şevval 1447' },
+  { id: '2026-03-21', name: 'Fıtr (Ramazan) Bayramı 2. Günü', dateGregorian: '21 Mart 2026', dateHijri: '2 Şevval 1447' },
+  { id: '2026-03-22', name: 'Fıtr (Ramazan) Bayramı 3. Günü', dateGregorian: '22 Mart 2026', dateHijri: '3 Şevval 1447' },
+  { id: '2026-05-25', name: 'Terviye Günü', dateGregorian: '25 Mayıs 2026', dateHijri: '8 Zilhicce 1447' },
+  { id: '2026-05-26', name: 'Arefe Günü ve Gecesi', dateGregorian: '26 Mayıs 2026', dateHijri: '9 Zilhicce 1447' },
+  { id: '2026-05-27', name: 'Kurban Bayramı 1. Günü', dateGregorian: '27 Mayıs 2026', dateHijri: '10 Zilhicce 1447' },
+  { id: '2026-05-28', name: 'Kurban Bayramı 2. Günü', dateGregorian: '28 Mayıs 2026', dateHijri: '11 Zilhicce 1447' },
+  { id: '2026-05-29', name: 'Kurban Bayramı 3. Günü', dateGregorian: '29 Mayıs 2026', dateHijri: '12 Zilhicce 1447' },
+  { id: '2026-05-30', name: 'Kurban Bayramı 4. Günü', dateGregorian: '30 Mayıs 2026', dateHijri: '13 Zilhicce 1447' },
+  { id: '2026-06-15', name: 'Muharrem (Yılbaşı) Gecesi', dateGregorian: '15 Haziran 2026', dateHijri: '29 Zilhicce 1447' },
+  { id: '2026-06-16', name: 'Hicrî Senebaşı (Yılbaşı Günü)', dateGregorian: '16 Haziran 2026', dateHijri: '1 Muharrem 1448' },
+  { id: '2026-06-24', name: 'Aşûre Gecesi', dateGregorian: '24 Haziran 2026', dateHijri: '9 Muharrem 1448' },
+  { id: '2026-06-25', name: 'Aşûre Günü', dateGregorian: '25 Haziran 2026', dateHijri: '10 Muharrem 1448' },
+  { id: '2026-08-24', name: 'Mevlid Kandili Gecesi', dateGregorian: '24 Ağustos 2026', dateHijri: '11 Rebiülevvel 1448' },
+  { id: '2026-12-10', name: 'Regâib Kandili Gecesi', dateGregorian: '10 Aralık 2026', dateHijri: '1 Receb 1448' },
 ];
 
 export const TABS = [
