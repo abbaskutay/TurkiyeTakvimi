@@ -4,7 +4,13 @@
     "slug": "turkiye-takvimi",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#700510"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ezanvakti.app",
@@ -14,12 +20,19 @@
     },
     "android": {
       "package": "com.ezanvakti.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#700510"
+      },
       "usesCleartextTraffic": true,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "POST_NOTIFICATIONS"
       ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [

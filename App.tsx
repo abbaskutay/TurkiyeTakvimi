@@ -17,6 +17,7 @@ import Vakitler from './components/Vakitler';
 import Sehirler from './components/Sehirler';
 import Kible from './components/Kible';
 import Gunler from './components/Gunler';
+import SplashScreen from './components/SplashScreen';
 
 const MainScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -121,12 +122,19 @@ const MainScreen: React.FC = () => {
 };
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
         <ThemeProvider>
           <CityProvider>
-            <MainScreen />
+            <View style={{ flex: 1 }}>
+              <MainScreen />
+              {showSplash && (
+                <SplashScreen onFinish={() => setShowSplash(false)} />
+              )}
+            </View>
           </CityProvider>
         </ThemeProvider>
       </SafeAreaProvider>
