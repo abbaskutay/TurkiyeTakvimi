@@ -93,6 +93,7 @@ export function mapCalendarToImportantDays(
         name: v.OnemliGun!['@attributes']!.Baslik!,
         dateGregorian: tarih ? formatGregorianDate(tarih) : '',
         dateHijri: hicriRaw ? formatHicriDate(hicriRaw) : '',
+        hicriRaw: hicriRaw || undefined,
       };
     });
 }

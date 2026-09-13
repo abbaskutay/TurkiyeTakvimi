@@ -157,3 +157,60 @@ describe('timerLogic - Countdown & Rollover', () => {
     assert(cClose.progress > 95 && cClose.progress <= 100);
   });
 });
+
+describe('timerLogic - 18 Vakit Active Prayer & Countdown', () => {
+  const sortedGrid = [...gridTimes].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+
+  it('correctly resolves active prayer across 18 periods', () => {
+    assert.strictEqual(calculateActivePrayer('01:00', sortedGrid), 'gece_yarisi');
+    assert.strictEqual(calculateActivePrayer('03:00', sortedGrid), 'teheccud');
+    assert.strictEqual(calculateActivePrayer('04:30', sortedGrid), 'seher');
+    assert.strictEqual(calculateActivePrayer('05:20', sortedGrid), 'imsak');
+    assert.strictEqual(calculateActivePrayer('06:00', sortedGrid), 'sabah');
+    assert.strictEqual(calculateActivePrayer('07:00', sortedGrid), 'gunes');
+    assert.strictEqual(calculateActivePrayer('08:00', sortedGrid), 'israk');
+    assert.strictEqual(calculateActivePrayer('11:45', sortedGrid), 'kible_saati');
+    assert.strictEqual(calculateActivePrayer('12:15', sortedGrid), 'dahve');
+    assert.strictEqual(calculateActivePrayer('12:50', sortedGrid), 'kerahet');
+    assert.strictEqual(calculateActivePrayer('17:00', sortedGrid), 'asr_evvel');
+    assert.strictEqual(calculateActivePrayer('18:00', sortedGrid), 'asr_sani');
+    assert.strictEqual(calculateActivePrayer('22:00', sortedGrid), 'isa_sani');
+  });
+
+  it('computes 18-vakit countdown to next detailed period within the same day', () => {
+    // 10:00 -> Next is Kıble Saati (11:35) -> 1h 35m
+    const testNow1 = new Date(2026, 8, 12, 10, 0, 0);
+    const c1 = calculateCountdown(testNow1, sortedGrid, sortedGrid);
+    assert.strictEqual(c1.id, 'kible_saati');
+    assert.strictEqual(c1.h, '01');
+    assert.strictEqual(c1.m, '35');
+    assert.strictEqual(c1.isTomorrow, false);
+
+    // 11:40 -> Next is Dahve (12:00) -> 20m
+    const testNow2 = new Date(2026, 8, 12, 11, 40, 0);
+    const c2 = calculateCountdown(testNow2, sortedGrid, sortedGrid);
+    assert.strictEqual(c2.id, 'dahve');
+    assert.strictEqual(c2.h, '00');
+    assert.strictEqual(c2.m, '20');
+    assert.strictEqual(c2.isTomorrow, false);
+
+    // 12:15 -> Next is Kerâhet (12:40) -> 25m
+    const testNow3 = new Date(2026, 8, 12, 12, 15, 0);
+    const c3 = calculateCountdown(testNow3, sortedGrid, sortedGrid);
+    assert.strictEqual(c3.id, 'kerahet');
+    assert.strictEqual(c3.h, '00');
+    assert.strictEqual(c3.m, '25');
+    assert.strictEqual(c3.isTomorrow, false);
+  });
+
+  it('computes 18-vakit countdown with rollover after isa_sani to tomorrow gece_yarisi', () => {
+    // 22:00 -> Next is tomorrow Gece Yarısı (00:10) -> 2h 10m
+    const testNow = new Date(2026, 8, 12, 22, 0, 0);
+    const c = calculateCountdown(testNow, sortedGrid, sortedGrid);
+    assert.strictEqual(c.id, 'gece_yarisi');
+    assert.strictEqual(c.isTomorrow, true);
+    assert.strictEqual(c.h, '02');
+    assert.strictEqual(c.m, '10');
+    assert.strictEqual(c.diffSec, 2 * 3600 + 10 * 60);
+  });
+});

@@ -4,6 +4,7 @@ import { PrayerTime, DetailedPrayerTime } from '../../types';
 import { COLORS } from '../../constants';
 import { useTimer } from '../../hooks/useTimer';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface CountdownBannerProps {
   activePage: number;
@@ -23,6 +24,7 @@ export const CountdownBanner: React.FC<CountdownBannerProps> = ({
   getPrayerIcon,
 }) => {
   const { isDarkMode } = useTheme();
+  const { t, getPrayerName, isRTL, toUpper } = useLanguage();
   const { countdownInfo } = useTimer(
     activePage,
     mainPrayerTimes,
@@ -42,16 +44,18 @@ export const CountdownBanner: React.FC<CountdownBannerProps> = ({
           },
         ]}
       >
-        <View style={styles.floatingCountdownContent}>
-          <View style={styles.floatingCountdownLeft}>
-            <View style={styles.floatingIconBadge}>
+        <View style={[styles.floatingCountdownContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.floatingCountdownLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.floatingIconBadge, isRTL ? { marginLeft: 8, marginRight: 0 } : { marginRight: 8 }]}>
               {getPrayerIcon(countdownInfo.id, 16, '#ffffff')}
             </View>
             <View>
-              <Text style={styles.floatingSubLabel}>
-                SIRADAKİ VAKİT
+              <Text style={[styles.floatingSubLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('vakitler.nextPrayer')}
               </Text>
-              <Text style={styles.floatingPrayerName}>{countdownInfo.name}</Text>
+              <Text style={[styles.floatingPrayerName, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {toUpper(getPrayerName(countdownInfo.id))}
+              </Text>
             </View>
           </View>
 
@@ -124,7 +128,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: 0.6,
-    textTransform: 'uppercase',
   },
   floatingTimerRight: {
     alignItems: 'flex-end',

@@ -26,9 +26,12 @@ import {
 } from 'lucide-react-native';
 import { City } from '../types';
 import { COLORS } from '../constants';
-import { turkTakvimApi, ApiSearchResult } from '../services/turkTakvimApi';
+import { turkTakvimApi, ApiSearchResult, isAbortError } from '../services/turkTakvimApi';
+import { searchCitiesLocalized, getDisplayCityName } from '../services/citySearchTranslationService';
 import { useTheme } from '../context/ThemeContext';
 import { useCity } from '../context/CityContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageModal } from './LanguageModal';
 
 interface SehirlerProps {
   cities?: City[];
@@ -44,6 +47,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
 }) => {
   const { isDarkMode, theme, toggleTheme } = useTheme();
   const { cities: contextCities, updateCities: contextUpdateCities, selectCity } = useCity();
+  const { t, isRTL, language, toUpper } = useLanguage();
 
   const cities = propCities || contextCities;
   const onUpdateCities = propOnUpdateCities || contextUpdateCities;
@@ -53,6 +57,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
   const [searchResults, setSearchResults] = useState<ApiSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -69,10 +74,10 @@ export const Sehirler: React.FC<SehirlerProps> = ({
 
     setLoading(true);
     try {
-      const results = await turkTakvimApi.searchCities(query, 12, abortControllerRef.current.signal);
+      const results = await searchCitiesLocalized(query, 12, abortControllerRef.current.signal);
       setSearchResults(results);
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (isAbortError(error, abortControllerRef.current?.signal)) {
         return;
       }
       console.error('City search error:', error);
@@ -200,17 +205,25 @@ export const Sehirler: React.FC<SehirlerProps> = ({
       {/* Header Banner */}
       <View style={[styles.headerBanner, { backgroundColor: theme.headerBg }]}>
         {!isSearching ? (
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.headerTitle}>ŞEHİRLERİM</Text>
-              <Text style={styles.headerSubtitle}>TÜRK TAKVİMİ ŞEHİR ARAMA</Text>
+          <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={isRTL && { alignItems: 'flex-end' }}>
+              <Text style={styles.headerTitle}>{t('cities.title')}</Text>
+              <Text style={styles.headerSubtitle}>{t('cities.subtitle')}</Text>
             </View>
-            <View style={styles.headerActionBtns}>
+            <View style={[styles.headerActionBtns, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity
+                onPress={() => setShowLanguageModal(true)}
+                activeOpacity={0.8}
+                style={[styles.headerBtn, styles.headerBtnInactive]}
+                accessibilityLabel={t('language.changeLanguage')}
+              >
+                <Globe size={18} color="#ffffff" />
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={toggleTheme}
                 activeOpacity={0.8}
                 style={[styles.headerBtn, styles.headerBtnInactive]}
-                accessibilityLabel="Temayı Değiştir"
+                accessibilityLabel={t('common.themeToggle')}
               >
                 {isDarkMode ? <Sun size={20} color="#ffffff" /> : <Moon size={20} color="#ffffff" />}
               </TouchableOpacity>
@@ -236,16 +249,16 @@ export const Sehirler: React.FC<SehirlerProps> = ({
             </View>
           </View>
         ) : (
-          <View style={styles.searchBarRow}>
-            <View style={styles.searchInputContainer}>
+          <View style={[styles.searchBarRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.searchInputContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Search size={18} color="rgba(255,255,255,0.6)" style={styles.searchIcon} />
               <TextInput
                 autoFocus
-                placeholder="Türkiye Takvimi'nde ara (örn. İstanbul, Ankara, Berlin)..."
+                placeholder={t('cities.searchPlaceholder')}
                 placeholderTextColor="rgba(255,255,255,0.5)"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                style={styles.searchInput}
+                style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
               />
               {searchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
@@ -261,7 +274,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
               }}
               style={styles.cancelSearchBtn}
             >
-              <Text style={styles.cancelSearchText}>KAPAT</Text>
+              <Text style={styles.cancelSearchText}>{toUpper(t('common.close'))}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -296,7 +309,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                     >
                       <View style={styles.searchResultInfo}>
                         <Text style={[styles.searchResultName, { color: theme.textPrimary }]}>
-                          {result.NameTR || result.NameEN}
+                          {getDisplayCityName(result.NameTR, result.NameEN, language)}
                         </Text>
                         <Text style={[styles.searchResultSub, { color: theme.textSecondary }]}>
                           {result.cityStateTR ? `${result.cityStateTR}, ` : ''}{result.countryName || 'Türkiye'}
@@ -308,7 +321,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                 ) : (
                   <View style={styles.noResultsBox}>
                     <Text style={[styles.noResultsText, { color: theme.textMuted }]}>
-                      Sonuç bulunamadı
+                      {t('cities.noSavedCities')}
                     </Text>
                   </View>
                 )}
@@ -321,7 +334,11 @@ export const Sehirler: React.FC<SehirlerProps> = ({
               disabled={loading}
               style={[
                 styles.currentLocationButton,
-                { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.cardBorder,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
               ]}
             >
               {loading ? (
@@ -330,7 +347,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                 <MapPin size={20} color={COLORS.primary} />
               )}
               <Text style={[styles.currentLocationText, { color: theme.textPrimary }]}>
-                MEVCUT KONUMU BUL VE EKLE
+                {toUpper(t('cities.myLocationGps'))}
               </Text>
             </TouchableOpacity>
           </>
@@ -349,11 +366,12 @@ export const Sehirler: React.FC<SehirlerProps> = ({
               {
                 backgroundColor: theme.card,
                 borderColor: item.isCurrent ? COLORS.primary : theme.cardBorder,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
               },
               item.isCurrent && styles.activeCityCard,
             ]}
           >
-            <View style={styles.cityCardLeft}>
+            <View style={[styles.cityCardLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View
                 style={[
                   styles.cityIconBox,
@@ -368,19 +386,19 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                   <Globe size={20} color={theme.textMuted} />
                 )}
               </View>
-              <View style={styles.cityTextCol}>
-                <View style={styles.cityNameRow}>
+              <View style={[styles.cityTextCol, isRTL && { alignItems: 'flex-end' }]}>
+                <View style={[styles.cityNameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text
                     style={[
                       styles.cityNameText,
                       { color: item.isCurrent ? (isDarkMode ? '#ffffff' : '#111827') : theme.textSecondary },
                     ]}
                   >
-                    {item.name}
+                    {getDisplayCityName(item.name, item.name, language)}
                   </Text>
                   {item.isCurrent && (
                     <View style={styles.activePill}>
-                      <Text style={styles.activePillText}>AKTİF</Text>
+                      <Text style={styles.activePillText}>{toUpper(t('cities.defaultCity'))}</Text>
                     </View>
                   )}
                 </View>
@@ -402,10 +420,17 @@ export const Sehirler: React.FC<SehirlerProps> = ({
               <ChevronRight
                 size={20}
                 color={item.isCurrent ? COLORS.primary : theme.textMuted}
+                style={isRTL ? { transform: [{ rotate: '180deg' }] } : undefined}
               />
             )}
           </TouchableOpacity>
         )}
+      />
+
+      {/* Language Selection Modal */}
+      <LanguageModal
+        visible={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
       />
     </View>
   );

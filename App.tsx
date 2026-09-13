@@ -12,6 +12,7 @@ import { Clock, Globe, Compass, Calendar, Sun, Moon } from 'lucide-react-native'
 import { AppTab } from './types';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { CityProvider, useCity } from './context/CityContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Vakitler from './components/Vakitler';
 import Sehirler from './components/Sehirler';
@@ -23,6 +24,7 @@ const MainScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { isDarkMode, theme, toggleTheme } = useTheme();
   const { cities, currentCity, updateCities } = useCity();
+  const { t, isRTL, toUpper } = useLanguage();
   const [activeTab, setActiveTab] = useState<AppTab>(AppTab.VAKITLER);
 
   const renderContent = () => {
@@ -60,10 +62,10 @@ const MainScreen: React.FC = () => {
   };
 
   const tabItems = [
-    { id: AppTab.VAKITLER, label: 'Vakitler', Icon: Clock },
-    { id: AppTab.SEHIRLER, label: 'Şehirler', Icon: Globe },
-    { id: AppTab.KIBLE, label: 'Kıble', Icon: Compass },
-    { id: AppTab.GUNLER, label: 'Günler', Icon: Calendar },
+    { id: AppTab.VAKITLER, label: toUpper(t('tabs.vakitler')), Icon: Clock },
+    { id: AppTab.SEHIRLER, label: toUpper(t('tabs.sehirler')), Icon: Globe },
+    { id: AppTab.KIBLE, label: toUpper(t('tabs.kible')), Icon: Compass },
+    { id: AppTab.GUNLER, label: toUpper(t('tabs.gunler')), Icon: Calendar },
   ];
 
   return (
@@ -83,6 +85,7 @@ const MainScreen: React.FC = () => {
             backgroundColor: theme.tabBarBg,
             borderTopColor: theme.tabBarBorder,
             paddingBottom: Math.max(insets.bottom, 10),
+            flexDirection: isRTL ? 'row-reverse' : 'row',
           },
         ]}
       >
@@ -108,6 +111,7 @@ const MainScreen: React.FC = () => {
                   {
                     color: isActive ? theme.activeTab : theme.inactiveTab,
                     fontWeight: isActive ? '900' : '700',
+                    letterSpacing: isRTL ? 0 : 0.8,
                   },
                 ]}
               >
@@ -128,14 +132,16 @@ export default function App() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <ThemeProvider>
-          <CityProvider>
-            <View style={{ flex: 1 }}>
-              <MainScreen />
-              {showSplash && (
-                <SplashScreen onFinish={() => setShowSplash(false)} />
-              )}
-            </View>
-          </CityProvider>
+          <LanguageProvider>
+            <CityProvider>
+              <View style={{ flex: 1 }}>
+                <MainScreen />
+                {showSplash && (
+                  <SplashScreen onFinish={() => setShowSplash(false)} />
+                )}
+              </View>
+            </CityProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
@@ -177,7 +183,6 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 10,
-    textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
 });

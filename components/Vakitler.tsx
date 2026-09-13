@@ -33,6 +33,7 @@ import {
   Moon,
   X,
   BookOpen,
+  Globe,
 } from 'lucide-react-native';
 import {
   MOCK_PRAYER_TIMES,
@@ -40,18 +41,24 @@ import {
   COLORS,
   mapVakitToMainPrayerTimes,
   mapVakitToGridPrayerTimes,
+  timeToMinutes,
 } from '../constants';
 import { City, PrayerTime, DetailedPrayerTime, ReminderConfig } from '../types';
 import { notificationService } from '../services/notificationService';
 import { storageService } from '../services/storageService';
 import { useTheme } from '../context/ThemeContext';
 import { useCity } from '../context/CityContext';
+import { useLanguage } from '../context/LanguageContext';
 import { usePrayerTimes } from '../hooks/usePrayerTimes';
 import { CountdownBanner } from './vakitler/CountdownBanner';
 import { PrayerListCard } from './vakitler/PrayerListCard';
 import { GridPrayerCard } from './vakitler/GridPrayerCard';
 import { ReminderModal } from './vakitler/ReminderModal';
 import { YearTransitionModal } from './vakitler/YearTransitionModal';
+import { LanguageModal } from './LanguageModal';
+import { translations } from '../locales';
+import { quoteTranslationService } from '../services/quoteTranslationService';
+import { getLocalDateString } from '../utils/dateUtils';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -76,6 +83,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
 }) => {
   const { isDarkMode, theme, toggleTheme } = useTheme();
   const { currentCity: contextCity, cities, selectCity } = useCity();
+  const { language, isRTL, t, getPrayerName, toUpper } = useLanguage();
   const currentCity = propCity || contextCity;
 
   const [reminders, setReminders] = useState<Record<string, ReminderConfig>>({});
@@ -85,6 +93,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
   const [showCityModal, setShowCityModal] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showYearTransition, setShowYearTransition] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const currentYear = new Date().getFullYear();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -100,6 +109,46 @@ export const Vakitler: React.FC<VakitlerProps> = ({
     isOffline,
     onRefresh,
   } = usePrayerTimes(cityID);
+
+  const [translatedQuote, setTranslatedQuote] = useState<string | null>(null);
+
+  // Translate quote of the day if language is not Turkish
+  useEffect(() => {
+    let isMounted = true;
+    const rawQuote = calendarDetail.gununSozu;
+    if (!rawQuote) {
+      setTranslatedQuote(null);
+      return;
+    }
+
+    if (language === 'tr') {
+      setTranslatedQuote(rawQuote);
+      return;
+    }
+
+    const todayStr = getLocalDateString(new Date());
+    quoteTranslationService.getOrTranslateQuote(rawQuote, todayStr, language).then(translated => {
+      if (isMounted) {
+        setTranslatedQuote(translated);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [calendarDetail.gununSozu, language]);
+
+  const activeQuote = translatedQuote || calendarDetail.gununSozu || 'İyi ameller güzel sûretlerle, kötü ameller de çirkin kıyâfetlerle gelecek, mizâna konacaktır.';
+
+  const quoteAuthor = useMemo(() => {
+    if (language === 'ar') {
+      return calendarDetail.gununSozu ? '— تقويم تركيا' : '— ابن عباس (رضي الله عنه)';
+    }
+    if (language === 'en') {
+      return calendarDetail.gununSozu ? '— Türkiye Takvimi' : '— Ibn Abbas (r.a.)';
+    }
+    return calendarDetail.gununSozu ? '— Türkiye Takvimi' : '— İbn-i Abbâs (r.a.)';
+  }, [language, calendarDetail.gununSozu]);
 
   // Initialize reminder config from storageService
   useEffect(() => {
@@ -185,48 +234,56 @@ export const Vakitler: React.FC<VakitlerProps> = ({
   const flattenedGridTimes = useMemo(() => gridPrayerTimes.flat(), [gridPrayerTimes]);
   const tomorrowFlattenedGridTimes = useMemo(() => tomorrowGridPrayerTimes.flat(), [tomorrowGridPrayerTimes]);
 
+  const chronologicalGridTimes = useMemo(() => {
+    return [...flattenedGridTimes].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  }, [flattenedGridTimes]);
+
+  const chronologicalTomorrowGridTimes = useMemo(() => {
+    return [...tomorrowFlattenedGridTimes].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  }, [tomorrowFlattenedGridTimes]);
+
   const activePrayerId = useMemo(() => {
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const timeToMin = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + m;
-    };
-    let active = mainPrayerTimes[mainPrayerTimes.length - 1]?.id || 'yatsi';
-    for (let i = 0; i < mainPrayerTimes.length; i++) {
-      if (timeToMin(mainPrayerTimes[i].time) > currentMinutes) {
-        active = i === 0 ? mainPrayerTimes[mainPrayerTimes.length - 1].id : mainPrayerTimes[i - 1].id;
+    const targetSet = activePage === 0 ? mainPrayerTimes : chronologicalGridTimes;
+    if (!targetSet || targetSet.length === 0) return 'yatsi';
+    let active = targetSet[targetSet.length - 1]?.id || (activePage === 0 ? 'yatsi' : 'isa_sani');
+    for (let i = 0; i < targetSet.length; i++) {
+      if (timeToMinutes(targetSet[i].time) > currentMinutes) {
+        active = i === 0 ? targetSet[targetSet.length - 1].id : targetSet[i - 1].id;
         break;
       }
     }
     return active;
-  }, [mainPrayerTimes]);
+  }, [activePage, mainPrayerTimes, chronologicalGridTimes]);
 
   const countdownUpcomingId = useMemo(() => {
     const now = new Date();
     const currentMinutesTotal = now.getHours() * 60 + now.getMinutes();
-    const targetSet = activePage === 0 ? mainPrayerTimes : flattenedGridTimes;
-    const timeToMin = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return h * 60 + m;
-    };
-    const nextTime = targetSet.find(p => timeToMin(p.time) > currentMinutesTotal);
+    const targetSet = activePage === 0 ? mainPrayerTimes : chronologicalGridTimes;
+    const nextTime = targetSet.find(p => timeToMinutes(p.time) > currentMinutesTotal);
     if (nextTime) return nextTime.id;
-    const tomorrowSet = activePage === 0 ? tomorrowMainPrayerTimes : tomorrowFlattenedGridTimes;
-    return tomorrowSet[0]?.id || targetSet[0]?.id || 'imsak';
-  }, [activePage, mainPrayerTimes, flattenedGridTimes, tomorrowMainPrayerTimes, tomorrowFlattenedGridTimes]);
+    const tomorrowSet = activePage === 0 ? tomorrowMainPrayerTimes : chronologicalTomorrowGridTimes;
+    return tomorrowSet[0]?.id || targetSet[0]?.id || (activePage === 0 ? 'imsak' : 'gece_yarisi');
+  }, [activePage, mainPrayerTimes, chronologicalGridTimes, tomorrowMainPrayerTimes, chronologicalTomorrowGridTimes]);
 
   const dateHeaderInfo = useMemo(() => {
     const now = new Date();
     const dayNum = now.getDate().toString().padStart(2, '0');
-    const monthName = MONTH_NAMES_TR[now.getMonth()];
+    const monthNames = translations[language]?.months?.gregorianUpper || MONTH_NAMES_TR;
+    const monthName = monthNames[now.getMonth()] || MONTH_NAMES_TR[now.getMonth()];
     const yearNum = now.getFullYear();
-    const dayName = DAY_NAMES_TR[now.getDay()];
+    const dayNames = translations[language]?.months?.weekdaysUpper || DAY_NAMES_TR;
+    const dayName = dayNames[now.getDay()] || DAY_NAMES_TR[now.getDay()];
 
     const hicriStr = todayVakit?.['@attributes']?.hicri || 'RECEB 1447';
     const hicriParts = hicriStr.trim().split(/\s+/);
     const hicriDay = hicriParts[0] || '';
-    const hicriSub = hicriParts.slice(1).join(' ') || 'RECEB 1447';
+    const hicriYear = hicriParts[hicriParts.length - 1] || '1447';
+    const hicriMonthRaw = hicriParts.slice(1, -1).join(' ') || hicriParts.slice(1).join(' ');
+    const hijriDict = translations[language]?.months?.hijri || {};
+    const localizedHicriMonth = hijriDict[hicriMonthRaw] || hicriMonthRaw;
+    const hicriSub = `${localizedHicriMonth} ${hicriYear}`.trim();
 
     return {
       gregorianDay: dayNum,
@@ -235,7 +292,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
       hicriDay,
       hicriSub,
     };
-  }, [todayVakit]);
+  }, [todayVakit, language]);
 
   const toggleReminder = async (id: string) => {
     const hasPermission = await notificationService.requestPermissions();
@@ -278,11 +335,14 @@ export const Vakitler: React.FC<VakitlerProps> = ({
   };
 
   const handleShareQuote = async () => {
-    const text = calendarDetail.gununSozu || 'İyi ameller güzel sûretlerle, kötü ameller de çirkin kıyâfetlerle gelecek, mizâna konacaktır. — İbn-i Abbâs (r.a.)';
+    const text = activeQuote;
+    const shareTitle = language === 'ar' ? 'حكمة اليوم' : language === 'en' ? 'Quote of the Day' : 'Günün Sözü';
+    const appHeader = language === 'ar' ? '📜 تقويم تركيا - حكمة اليوم' : language === 'en' ? '📜 TÜRKİYE TAKVİMİ - QUOTE OF THE DAY' : '📜 TÜRKİYE TAKVİMİ - GÜNÜN SÖZÜ';
+    const appFooter = language === 'ar' ? '🕌 تطبيق تقويم تركيا' : '🕌 Türkiye Takvimi';
     try {
       await Share.share({
-        message: `📜 TÜRKİYE TAKVİMİ - GÜNÜN SÖZÜ\n\n"${text}"\n\n🕌 Türkiye Takvimi Uygulaması`,
-        title: 'Günün Sözü',
+        message: `${appHeader}\n\n"${text}"\n\n${appFooter}`,
+        title: shareTitle,
       });
     } catch (e) {
       console.error('Share quote error:', e);
@@ -343,15 +403,19 @@ export const Vakitler: React.FC<VakitlerProps> = ({
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Unified Top Header Banner */}
       <View style={[styles.headerBanner, { backgroundColor: theme.headerBg }]}>
-        <View style={styles.headerTopRow}>
+        <View style={[styles.headerTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           {/* Gregorian Date (Long press to preview Year Transition) */}
           <TouchableOpacity
             activeOpacity={0.8}
             onLongPress={() => setShowYearTransition(true)}
-            style={styles.dateColLeft}
+            style={[styles.dateColLeft, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}
           >
-            <Text style={styles.dateDayText}>{dateHeaderInfo.gregorianDay}</Text>
-            <Text style={styles.dateSubText}>{dateHeaderInfo.gregorianSub}</Text>
+            <Text style={[styles.dateDayText, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {dateHeaderInfo.gregorianDay}
+            </Text>
+            <Text style={[styles.dateSubText, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+              {dateHeaderInfo.gregorianSub}
+            </Text>
           </TouchableOpacity>
 
           {/* Clickable City Selector with Dropdown Chevron */}
@@ -360,34 +424,49 @@ export const Vakitler: React.FC<VakitlerProps> = ({
             activeOpacity={0.8}
             style={styles.cityColCenter}
           >
-            <View style={styles.cityTitleRow}>
+            <View style={[styles.cityTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Text style={styles.cityTitle} numberOfLines={1}>
                 {currentCity.city || currentCity.name}
               </Text>
-              <ChevronDown size={18} color="#ffffff" style={styles.cityChevron} />
+              <ChevronDown size={16} color="#ffffff" style={styles.cityChevron} />
             </View>
             <Text style={styles.districtSubText} numberOfLines={1}>
-              {currentCity.district ? `${currentCity.district} • Türkiye Takvimi` : 'TÜRKİYE TAKVİMİ VAKİTLERİ'}
+              {currentCity.district ? `${currentCity.district} • Türkiye Takvimi` : t('vakitler.turkiyeTakvimiTimes')}
             </Text>
           </TouchableOpacity>
 
           {/* Hijri Date */}
-          <View style={styles.dateColRight}>
-            <Text style={styles.dateDayText}>{dateHeaderInfo.hicriDay}</Text>
-            <Text style={styles.dateSubText}>{dateHeaderInfo.hicriSub}</Text>
+          <View style={[styles.dateColRight, { alignItems: isRTL ? 'flex-start' : 'flex-end' }]}>
+            <Text style={[styles.dateDayText, { textAlign: isRTL ? 'left' : 'right' }]}>
+              {dateHeaderInfo.hicriDay}
+            </Text>
+            <Text style={[styles.dateSubText, { textAlign: isRTL ? 'left' : 'right' }]} numberOfLines={1}>
+              {dateHeaderInfo.hicriSub}
+            </Text>
           </View>
         </View>
 
-        {/* Header Action Row: Day Pill + Organic Theme Toggle Button */}
-        <View style={styles.headerBottomRow}>
+        {/* Header Action Row: Day Pill + Language Button + Organic Theme Toggle Button */}
+        <View style={[styles.headerBottomRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={styles.dayPill}>
             <Text style={styles.dayPillText}>{dateHeaderInfo.dayName}</Text>
           </View>
           <TouchableOpacity
+            onPress={() => setShowLanguageModal(true)}
+            activeOpacity={0.8}
+            style={styles.headerLangBtn}
+            accessibilityLabel={t('language.changeLanguage')}
+          >
+            <Globe size={13} color="#ffffff" />
+            <Text style={styles.headerLangText}>
+              {language.toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={toggleTheme}
             activeOpacity={0.8}
             style={styles.headerThemeBtn}
-            accessibilityLabel="Temayı Değiştir"
+            accessibilityLabel={t('common.themeToggle')}
           >
             {isDarkMode ? <Sun size={15} color="#ffffff" /> : <Moon size={15} color="#ffffff" />}
           </TouchableOpacity>
@@ -395,7 +474,16 @@ export const Vakitler: React.FC<VakitlerProps> = ({
       </View>
 
       {/* Segmented Switcher Control: [ Ana Vakitler (6) ] | [ 18 Vakit / Detaylı ] */}
-      <View style={[styles.segmentContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View
+        style={[
+          styles.segmentContainer,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.cardBorder,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={() => scrollToPage(0)}
           activeOpacity={0.8}
@@ -410,7 +498,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
               { color: activePage === 0 ? '#ffffff' : theme.textSecondary },
             ]}
           >
-            Ana Vakitler (6)
+            {t('vakitler.mainPrayers')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -427,7 +515,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
               { color: activePage === 1 ? '#ffffff' : theme.textSecondary },
             ]}
           >
-            18 Vakit
+            {t('vakitler.allPrayers')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -489,36 +577,44 @@ export const Vakitler: React.FC<VakitlerProps> = ({
           {/* Günün Sözü Card */}
           <View style={[styles.quoteCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.quoteHeader}>
-              <View style={styles.quoteHeaderLeft}>
-                <View style={styles.quoteIconBox}>
+              <View style={[styles.quoteHeaderLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={[styles.quoteIconBox, isRTL ? { marginLeft: 8, marginRight: 0 } : { marginRight: 8 }]}>
                   <Quote size={13} color={COLORS.primary} />
                 </View>
-                <Text style={styles.quoteBadgeText}>GÜNÜN SÖZÜ</Text>
+                <Text style={styles.quoteBadgeText}>{toUpper(t('vakitler.quoteOfTheDay'))}</Text>
               </View>
 
               <TouchableOpacity
                 onPress={handleShareQuote}
                 activeOpacity={0.7}
-                style={styles.quoteShareBtn}
+                style={[styles.quoteShareBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Share2 size={13} color={isDarkMode ? COLORS.accentRed : COLORS.primary} />
                 <Text style={[styles.quoteShareText, { color: isDarkMode ? COLORS.accentRed : COLORS.primary }]}>
-                  Paylaş
+                  {t('common.share')}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.quoteText, { color: theme.textSecondary }]} numberOfLines={2}>
-              {calendarDetail.gununSozu || '"İyi ameller güzel sûretlerle, kötü ameller de çirkin kıyâfetlerle gelecek, mizâna konacaktır."'}
+            <Text
+              style={[
+                styles.quoteText,
+                { color: theme.textSecondary, textAlign: isRTL ? 'right' : 'left' },
+              ]}
+              numberOfLines={2}
+            >
+              {activeQuote}
             </Text>
 
-            <View style={styles.quoteFooterRow}>
+            <View style={[styles.quoteFooterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Text style={[styles.quoteAuthor, { color: isDarkMode ? COLORS.accentRed : COLORS.primary }]}>
-                {calendarDetail.gununSozu ? '— Türkiye Takvimi' : '— İbn-i Abbâs (r.a.)'}
+                {quoteAuthor}
               </Text>
               <TouchableOpacity onPress={() => setShowQuoteModal(true)}>
-                <Text style={[styles.readMoreText, { color: theme.textMuted }]}>Tamamını Gör ›</Text>
+                <Text style={[styles.readMoreText, { color: theme.textMuted }]}>
+                  {t('vakitler.readMore')} ›
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -572,8 +668,8 @@ export const Vakitler: React.FC<VakitlerProps> = ({
           style={styles.modalOverlay}
         >
           <View style={[styles.citySheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={styles.citySheetHeader}>
-              <Text style={[styles.citySheetTitle, { color: theme.textPrimary }]}>Kayıtlı Şehirlerim</Text>
+            <View style={[styles.citySheetHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={[styles.citySheetTitle, { color: theme.textPrimary }]}>{t('cities.savedCities')}</Text>
               <TouchableOpacity onPress={() => setShowCityModal(false)} style={styles.sheetCloseBtn}>
                 <X size={18} color={theme.textPrimary} />
               </TouchableOpacity>
@@ -591,10 +687,11 @@ export const Vakitler: React.FC<VakitlerProps> = ({
                     }}
                     style={[
                       styles.citySheetRow,
+                      { flexDirection: isRTL ? 'row-reverse' : 'row' },
                       isSel && { backgroundColor: isDarkMode ? 'rgba(160,24,38,0.18)' : 'rgba(160,24,38,0.06)' },
                     ]}
                   >
-                    <View>
+                    <View style={isRTL && { alignItems: 'flex-end' }}>
                       <Text
                         style={[
                           styles.citySheetRowName,
@@ -618,10 +715,18 @@ export const Vakitler: React.FC<VakitlerProps> = ({
                 setShowCityModal(false);
                 onNavigateToSehirler?.();
               }}
-              style={[styles.addNewCityBtn, { backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6' }]}
+              style={[
+                styles.addNewCityBtn,
+                {
+                  backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
             >
               <Plus size={16} color={theme.textPrimary} />
-              <Text style={[styles.addNewCityBtnText, { color: theme.textPrimary }]}>Yeni Şehir Ekle</Text>
+              <Text style={[styles.addNewCityBtnText, { color: theme.textPrimary }]}>
+                {t('cities.addCityTab')}
+              </Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -640,10 +745,12 @@ export const Vakitler: React.FC<VakitlerProps> = ({
           style={styles.modalOverlay}
         >
           <View style={[styles.quoteModalCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={styles.quoteModalHeader}>
-              <View style={styles.quoteHeaderLeft}>
+            <View style={[styles.quoteModalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.quoteHeaderLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 <BookOpen size={18} color={COLORS.primary} />
-                <Text style={[styles.quoteModalTitle, { color: theme.textPrimary }]}>Günün Takvim Yaprağı</Text>
+                <Text style={[styles.quoteModalTitle, { color: theme.textPrimary }]}>
+                  {t('vakitler.quoteOfTheDay')}
+                </Text>
               </View>
               <TouchableOpacity onPress={() => setShowQuoteModal(false)} style={styles.sheetCloseBtn}>
                 <X size={18} color={theme.textPrimary} />
@@ -651,11 +758,16 @@ export const Vakitler: React.FC<VakitlerProps> = ({
             </View>
 
             <ScrollView style={{ maxHeight: 280, marginVertical: 12 }}>
-              <Text style={[styles.quoteFullText, { color: theme.textPrimary }]}>
-                {calendarDetail.gununSozu || '"İyi ameller güzel sûretlerle, kötü ameller de çirkin kıyâfetlerle gelecek, mizâna konacaktır."'}
+              <Text
+                style={[
+                  styles.quoteFullText,
+                  { color: theme.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                ]}
+              >
+                {activeQuote}
               </Text>
               <Text style={[styles.quoteAuthorModal, { color: isDarkMode ? COLORS.accentRed : COLORS.primary }]}>
-                {calendarDetail.gununSozu ? '— Türkiye Takvimi' : '— İbn-i Abbâs (r.a.)'}
+                {quoteAuthor}
               </Text>
             </ScrollView>
 
@@ -664,10 +776,13 @@ export const Vakitler: React.FC<VakitlerProps> = ({
                 setShowQuoteModal(false);
                 handleShareQuote();
               }}
-              style={[styles.modalShareBtn, { backgroundColor: COLORS.primary }]}
+              style={[
+                styles.modalShareBtn,
+                { backgroundColor: COLORS.primary, flexDirection: isRTL ? 'row-reverse' : 'row' },
+              ]}
             >
               <Share2 size={16} color="#ffffff" />
-              <Text style={styles.modalShareBtnText}>PAYLAŞ</Text>
+              <Text style={styles.modalShareBtnText}>{toUpper(t('common.share'))}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -689,6 +804,12 @@ export const Vakitler: React.FC<VakitlerProps> = ({
         loading={loading}
         onComplete={handleYearTransitionComplete}
         isDarkMode={isDarkMode}
+      />
+
+      {/* Language Selection Modal */}
+      <LanguageModal
+        visible={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
       />
     </View>
   );
@@ -741,10 +862,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dateColLeft: {
+    flex: 1,
     alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   dateColRight: {
+    flex: 1,
     alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   dateDayText: {
     fontSize: 24,
@@ -756,11 +881,13 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 1.2,
+    letterSpacing: 0.6,
   },
   cityColCenter: {
     alignItems: 'center',
-    maxWidth: 170,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    maxWidth: '46%',
   },
   cityTitleRow: {
     flexDirection: 'row',
@@ -772,36 +899,40 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: -0.5,
+    textAlign: 'center',
   },
   cityChevron: {
-    marginLeft: 3,
+    marginHorizontal: 3,
     marginTop: 2,
   },
   districtSubText: {
     fontSize: 9,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
     marginTop: 1,
+    textAlign: 'center',
   },
   headerBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
     width: '100%',
   },
   dayPill: {
+    height: 26,
     backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 14,
-    paddingVertical: 3,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dayPillText: {
     fontSize: 10,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
   headerThemeBtn: {
     width: 26,
@@ -810,6 +941,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerLangBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 26,
+    paddingHorizontal: 9,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+  },
+  headerLangText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffffff',
   },
   segmentContainer: {
     flexDirection: 'row',

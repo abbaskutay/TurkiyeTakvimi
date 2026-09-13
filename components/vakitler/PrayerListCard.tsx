@@ -4,6 +4,7 @@ import { Bell, BellOff } from 'lucide-react-native';
 import { PrayerTime, ReminderConfig } from '../../types';
 import { COLORS } from '../../constants';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface PrayerListCardProps {
   mainPrayerTimes: PrayerTime[];
@@ -29,19 +30,28 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
   onToggleAllReminders,
 }) => {
   const { isDarkMode, theme } = useTheme();
+  const { t, getPrayerName, isRTL, toUpper } = useLanguage();
   const allRemindersActive = mainPrayerTimes.every(p => reminders[p.id]?.enabled);
 
   return (
     <View style={[styles.prayerListCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       {/* Top Header Row with Bulk Reminder Action */}
-      <View style={[styles.cardTopHeader, { borderBottomColor: theme.cardBorder }]}>
+      <View
+        style={[
+          styles.cardTopHeader,
+          {
+            borderBottomColor: theme.cardBorder,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
+          },
+        ]}
+      >
         <Text style={[styles.cardHeaderTitle, { color: theme.textMuted }]}>
-          GÜNLÜK VAKİTLER
+          {toUpper(t('vakitler.mainPrayers'))}
         </Text>
         {onToggleAllReminders && (
           <TouchableOpacity
             onPress={onToggleAllReminders}
-            style={styles.toggleAllBtn}
+            style={[styles.toggleAllBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {allRemindersActive ? (
@@ -50,7 +60,7 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
               <Bell size={13} color={isDarkMode ? COLORS.accentRed : COLORS.primary} />
             )}
             <Text style={[styles.toggleAllText, { color: isDarkMode ? COLORS.accentRed : COLORS.primary }]}>
-              {allRemindersActive ? 'Tümünü Kapat' : 'Tümünü Aç (15dk)'}
+              {allRemindersActive ? t('reminders.disableAll') : t('reminders.enableAll')}
             </Text>
           </TouchableOpacity>
         )}
@@ -66,6 +76,7 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
             key={prayer.id}
             style={[
               styles.prayerRow,
+              { flexDirection: isRTL ? 'row-reverse' : 'row' },
               index < mainPrayerTimes.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder },
               isUpcoming
                 ? styles.upcomingPrayerRow
@@ -74,10 +85,11 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                 : null,
             ]}
           >
-            <View style={styles.prayerRowLeft}>
+            <View style={[styles.prayerRowLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View
                 style={[
                   styles.prayerIconBox,
+                  isRTL ? { marginLeft: 12, marginRight: 0 } : { marginRight: 12 },
                   isUpcoming
                     ? styles.upcomingIconBox
                     : { backgroundColor: isDarkMode ? '#1a1a1a' : '#f3f4f6' },
@@ -90,8 +102,8 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                 )}
               </View>
 
-              <View style={styles.prayerInfoCol}>
-                <View style={styles.prayerTitleRow}>
+              <View style={[styles.prayerInfoCol, isRTL && { alignItems: 'flex-end' }]}>
+                <View style={[styles.prayerTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                   <Text
                     style={[
                       styles.prayerName,
@@ -103,14 +115,15 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                             ? COLORS.accentRed
                             : COLORS.primary
                           : theme.textPrimary,
+                        textAlign: isRTL ? 'right' : 'left',
                       },
                     ]}
                   >
-                    {prayer.name}
+                    {getPrayerName(prayer.id)}
                   </Text>
                   {isUpcoming && (
-                    <View style={styles.upcomingBadge}>
-                      <Text style={styles.upcomingBadgeText}>SIRADAKİ</Text>
+                    <View style={[styles.upcomingBadge, isRTL ? { marginRight: 6, marginLeft: 0 } : { marginLeft: 6 }]}>
+                      <Text style={styles.upcomingBadgeText}>{t('vakitler.nextPrayer')}</Text>
                     </View>
                   )}
                 </View>
@@ -118,16 +131,21 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                   <Text
                     style={[
                       styles.reminderOffsetSubText,
-                      { color: isUpcoming ? 'rgba(255,255,255,0.7)' : theme.textMuted },
+                      {
+                        color: isUpcoming ? 'rgba(255,255,255,0.7)' : theme.textMuted,
+                        textAlign: isRTL ? 'right' : 'left',
+                      },
                     ]}
                   >
-                    {reminder.offset === 0 ? 'Vaktinde' : `${reminder.offset} dk. önce`}
+                    {reminder.offset === 0
+                      ? t('reminders.atTime')
+                      : t('reminders.minutesBefore', { minutes: reminder.offset })}
                   </Text>
                 )}
               </View>
             </View>
 
-            <View style={styles.prayerRowRight}>
+            <View style={[styles.prayerRowRight, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Text
                 style={[
                   styles.prayerTimeText,

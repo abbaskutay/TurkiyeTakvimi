@@ -1,0 +1,10 @@
+<svg width="1242" height="2688" viewBox="0 0 1242 2688" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="1242" height="2688" fill="#A81A24"/>
+<g transform="translate(621,1210)">
+  <circle cx="0" cy="0" r="180" fill="#FBF7EE"/>
+  <circle cx="-28.13" cy="0" r="70.31" fill="#A81A24"/>
+  <circle cx="-11.25" cy="0" r="56.25" fill="#FBF7EE"/>
+  <polygon points="30.94,0 56.25,-8.44 56.25,-33.75 70.31,-12.66 94.22,-21.09 80.16,0 94.22,21.09 70.31,12.66 56.25,33.75 56.25,8.44" fill="#A81A24"/>
+</g>
+<text x="621" y="1460" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="72" font-weight="600" fill="#FBF7EE">Türkiye Takvimi</text>
+</svg>

@@ -4,6 +4,7 @@ import { ApiTakvimVeri, ApiVakitResponse } from './turkTakvimApi';
 
 const KEYS = {
   THEME: 'ezan_theme',
+  LANGUAGE: 'ezan_language_v1',
   SAVED_CITIES: 'ezan_saved_cities',
   PRAYER_REMINDERS: 'prayer_reminders_v3',
   GLOBAL_REMINDERS_ENABLED: 'global_reminders_enabled',
@@ -12,6 +13,8 @@ const KEYS = {
   CALENDAR_DAY_CACHE_PREFIX: 'calendar_day_v2_',
   IMPORTANT_DAYS_CACHE_PREFIX: 'important_days_v2_',
   LAST_SYNCED_YEAR: 'ezan_last_synced_year',
+  QUOTE_TRANSLATION_PREFIX: 'quote_translation_v1_',
+  GEMINI_API_KEY: 'gemini_api_key_v1',
 } as const;
 
 interface CacheEntry<T> {
@@ -78,6 +81,30 @@ export const storageService = {
       await AsyncStorage.setItem(KEYS.THEME, theme);
     } catch (e) {
       console.error('storageService.setTheme error:', e);
+    }
+  },
+
+  /**
+   * Language Preference
+   */
+  async getLanguage(): Promise<'tr' | 'en' | 'ar' | null> {
+    try {
+      const value = await AsyncStorage.getItem(KEYS.LANGUAGE);
+      if (value === 'tr' || value === 'en' || value === 'ar') {
+        return value;
+      }
+      return null;
+    } catch (e) {
+      console.error('storageService.getLanguage error:', e);
+      return null;
+    }
+  },
+
+  async setLanguage(language: 'tr' | 'en' | 'ar'): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.LANGUAGE, language);
+    } catch (e) {
+      console.error('storageService.setLanguage error:', e);
     }
   },
 
@@ -233,6 +260,43 @@ export const storageService = {
       await AsyncStorage.setItem(KEYS.LAST_SYNCED_YEAR, String(year));
     } catch (e) {
       console.error('storageService.setLastSyncedYear error:', e);
+    }
+  },
+
+  /**
+   * Quote of the day translation cache, keyed by YYYY-MM-DD_lang (e.g. 2026-09-13_en)
+   */
+  async getCachedQuoteTranslation(dateKey: string, lang: string): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(`${KEYS.QUOTE_TRANSLATION_PREFIX}${dateKey}_${lang}`);
+    } catch (e) {
+      console.error('storageService.getCachedQuoteTranslation error:', e);
+      return null;
+    }
+  },
+
+  async setCachedQuoteTranslation(dateKey: string, lang: string, translation: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(`${KEYS.QUOTE_TRANSLATION_PREFIX}${dateKey}_${lang}`, translation);
+    } catch (e) {
+      console.error('storageService.setCachedQuoteTranslation error:', e);
+    }
+  },
+
+  async getGeminiApiKey(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(KEYS.GEMINI_API_KEY);
+    } catch (e) {
+      console.error('storageService.getGeminiApiKey error:', e);
+      return null;
+    }
+  },
+
+  async setGeminiApiKey(key: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.GEMINI_API_KEY, key);
+    } catch (e) {
+      console.error('storageService.setGeminiApiKey error:', e);
     }
   },
 };

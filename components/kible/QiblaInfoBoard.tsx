@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MapPin, Clock, Navigation, Sliders } from 'lucide-react-native';
 import { NamazVaktiQiblaData } from '../../utils/qiblaUtils';
 import { COLORS } from '../../constants';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface QiblaInfoBoardProps {
   qiblaData: NamazVaktiQiblaData;
@@ -27,13 +28,15 @@ export const QiblaInfoBoard: React.FC<QiblaInfoBoardProps> = ({
   isDarkMode,
   theme,
 }) => {
+  const { t, isRTL } = useLanguage();
+
   return (
     <View style={[styles.infoBoardCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-      <View style={styles.boardHeaderRow}>
-        <View style={styles.boardHeaderLeft}>
+      <View style={[styles.boardHeaderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.boardHeaderLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <MapPin size={16} color={COLORS.primary} />
           <Text style={[styles.boardTitle, { color: theme.textPrimary }]}>
-            KIBLE HESAPLAMA VERİLERİ
+            {t('qibla.dataTitle')}
           </Text>
         </View>
         <Text style={[styles.coordsPill, { backgroundColor: isDarkMode ? '#1f2937' : '#f3f4f6', color: theme.textSecondary }]}>
@@ -44,11 +47,11 @@ export const QiblaInfoBoard: React.FC<QiblaInfoBoardProps> = ({
       <View style={styles.boardDivider} />
 
       {/* 1. Coğrafi Kuzey Açısı */}
-      <View style={styles.boardDataRow}>
-        <View style={styles.rowLabelGroup}>
+      <View style={[styles.boardDataRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.rowLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.dotIndicator, { backgroundColor: '#0d9488' }]} />
           <Text style={[styles.boardLabel, { color: theme.textSecondary }]} numberOfLines={1}>
-            Coğrafi Kuzey Açısı:
+            {t('qibla.geographicNorth')}
           </Text>
         </View>
         <Text style={styles.cografiKuzeyVal}>
@@ -57,11 +60,11 @@ export const QiblaInfoBoard: React.FC<QiblaInfoBoardProps> = ({
       </View>
 
       {/* 2. Magnetik Sapma Açısı */}
-      <View style={styles.boardDataRow}>
-        <View style={styles.rowLabelGroup}>
+      <View style={[styles.boardDataRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.rowLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.dotIndicator, { backgroundColor: theme.textMuted }]} />
           <Text style={[styles.boardLabel, { color: theme.textSecondary }]} numberOfLines={1}>
-            Magnetik Sapma Açısı:
+            {t('qibla.magneticDeviation')}
           </Text>
         </View>
         <Text style={[styles.magSapmaVal, { color: theme.textPrimary }]}>
@@ -70,11 +73,11 @@ export const QiblaInfoBoard: React.FC<QiblaInfoBoardProps> = ({
       </View>
 
       {/* 3. Pusula Kuzey Açısı */}
-      <View style={styles.boardDataRow}>
-        <View style={styles.rowLabelGroup}>
+      <View style={[styles.boardDataRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.rowLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.dotIndicator, { backgroundColor: '#dc2626' }]} />
           <Text style={[styles.boardLabel, { color: theme.textSecondary }]} numberOfLines={1}>
-            Pusula Kıble Açısı:
+            {t('qibla.compassAngle')}
           </Text>
         </View>
         <Text style={styles.pusulaKuzeyVal}>
@@ -84,11 +87,11 @@ export const QiblaInfoBoard: React.FC<QiblaInfoBoardProps> = ({
 
       {/* 4. Bugünün Kıble Saati (TurkTakvim API) */}
       {todayVakitKible ? (
-        <View style={[styles.boardDataRow, styles.kibleSaatiRow]}>
-          <View style={styles.rowLabelGroup}>
+        <View style={[styles.boardDataRow, styles.kibleSaatiRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.rowLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <Clock size={14} color="#d97706" />
             <Text style={[styles.boardLabel, { color: isDarkMode ? '#fbbf24' : '#b45309', fontWeight: '700' }]} numberOfLines={1}>
-              Bugünün Kıble Saati:
+              {t('qibla.todayQiblaTime')}
             </Text>
           </View>
           <Text style={styles.kibleSaatiVal}>
@@ -98,24 +101,24 @@ export const QiblaInfoBoard: React.FC<QiblaInfoBoardProps> = ({
       ) : null}
 
       {/* 5. Kâbe-i Şerîf Uzaklığı */}
-      <View style={styles.boardDataRow}>
-        <View style={styles.rowLabelGroup}>
+      <View style={[styles.boardDataRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.rowLabelGroup, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Navigation size={14} color={theme.textMuted} />
           <Text style={[styles.boardLabel, { color: theme.textSecondary }]} numberOfLines={1}>
-            Kâbe-i Şerîf Uzaklığı:
+            {t('qibla.kaabaDistance')}
           </Text>
         </View>
         <Text style={[styles.distanceVal, { color: theme.textPrimary }]}>
-          {qiblaData.distanceKm.toLocaleString('tr-TR')} km
+          {t('qibla.distanceKm', { distance: qiblaData.distanceKm.toLocaleString() })}
         </Text>
       </View>
 
       {/* Micro-Adjustment Stepper inside the info board */}
       <View style={[styles.fineTuneBox, { borderTopColor: theme.cardBorder }]}>
-        <View style={styles.fineTuneHeader}>
+        <View style={[styles.fineTuneHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Sliders size={13} color={theme.textMuted} />
           <Text style={[styles.fineTuneLabel, { color: theme.textMuted }]}>
-            Pusula İnce Kalibrasyonu ({userOffset > 0 ? `+${userOffset}°` : `${userOffset}°`}):
+            {t('qibla.manualOffset')} ({userOffset > 0 ? `+${userOffset}°` : `${userOffset}°`}):
           </Text>
         </View>
         <View style={styles.stepperGroup}>
@@ -135,7 +138,7 @@ export const QiblaInfoBoard: React.FC<QiblaInfoBoardProps> = ({
             onPress={() => onSetUserOffset(0)}
             style={[styles.stepperBtn, { backgroundColor: isDarkMode ? '#1f2937' : '#e5e7eb', borderColor: theme.cardBorder }]}
           >
-            <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>Sıfırla</Text>
+            <Text style={[styles.stepperBtnText, { color: theme.textPrimary }]}>{t('common.reset')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onSetUserOffset(prev => prev + 1)}

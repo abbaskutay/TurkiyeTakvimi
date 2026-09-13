@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MapPin, LocateFixed } from 'lucide-react-native';
 import { COLORS } from '../../constants';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface QiblaSelectorsProps {
   locationSource: 'city' | 'gps';
@@ -30,15 +31,18 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
   textSecondary,
   textMuted,
 }) => {
+  const { t, isRTL } = useLanguage();
+
   return (
     <View style={styles.selectorsContainer}>
       {/* Source Pills (City vs GPS) */}
-      <View style={styles.sourceSelectorRow}>
+      <View style={[styles.sourceSelectorRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => onSelectLocationSource('city')}
           style={[
             styles.sourcePill,
+            { flexDirection: isRTL ? 'row-reverse' : 'row' },
             {
               backgroundColor:
                 locationSource === 'city'
@@ -73,6 +77,7 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
           onPress={() => onSelectLocationSource('gps')}
           style={[
             styles.sourcePill,
+            { flexDirection: isRTL ? 'row-reverse' : 'row' },
             {
               backgroundColor:
                 locationSource === 'gps'
@@ -91,13 +96,13 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
               { color: locationSource === 'gps' ? '#16a34a' : textMuted },
             ]}
           >
-            Canlı GPS
+            {t('qibla.liveGps')}
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Pusula Açısı Reference Switcher (Pusula: 146° vs Coğrafi: 152°) */}
-      <View style={styles.referenceSelectorRow}>
+      <View style={[styles.referenceSelectorRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => onSelectAngleReference('magnetic')}
@@ -119,7 +124,7 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
               { color: angleReference === 'magnetic' ? '#ffffff' : textSecondary },
             ]}
           >
-            Pusula Açısı ({compassAngle}°)
+            {t('qibla.compassAngle').replace(':', '')} ({compassAngle}°)
           </Text>
         </TouchableOpacity>
 
@@ -144,7 +149,7 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
               { color: angleReference === 'geographic' ? '#ffffff' : textSecondary },
             ]}
           >
-            Coğrafi Açı ({Math.round(geographicAngle)}°)
+            {t('qibla.geographicNorth').replace(':', '')} ({Math.round(geographicAngle)}°)
           </Text>
         </TouchableOpacity>
       </View>

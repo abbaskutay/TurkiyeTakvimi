@@ -26,6 +26,7 @@ export interface ImportantDay {
   name: string;
   dateGregorian: string;
   dateHijri: string;
+  hicriRaw?: string;
 }
 
 export enum AppTab {

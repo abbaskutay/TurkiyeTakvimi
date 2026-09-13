@@ -29,21 +29,41 @@ export function useTimer(
     return () => clearInterval(timer);
   }, []);
 
+  const chronologicalGridTimes = useMemo(() => {
+    return [...flattenedGridTimes].sort(
+      (a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)
+    );
+  }, [flattenedGridTimes]);
+
+  const chronologicalTomorrowGridTimes = useMemo(() => {
+    return [...tomorrowGridTimes].sort(
+      (a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)
+    );
+  }, [tomorrowGridTimes]);
+
   const activePrayerId = useMemo(() => {
+    const target = activePage === 0 ? mainPrayerTimes : chronologicalGridTimes;
+    if (!target || target.length === 0) return 'yatsi';
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    let active = mainPrayerTimes[mainPrayerTimes.length - 1]?.id || 'yatsi';
-    for (let i = 0; i < mainPrayerTimes.length; i++) {
-      if (timeToMinutes(mainPrayerTimes[i].time) > currentMinutes) {
-        active = i === 0 ? mainPrayerTimes[mainPrayerTimes.length - 1].id : mainPrayerTimes[i - 1].id;
+    let active = target[target.length - 1]?.id || (activePage === 0 ? 'yatsi' : 'isa_sani');
+    for (let i = 0; i < target.length; i++) {
+      if (timeToMinutes(target[i].time) > currentMinutes) {
+        active = i === 0 ? target[target.length - 1].id : target[i - 1].id;
         break;
       }
     }
     return active;
-  }, [now, mainPrayerTimes]);
+  }, [now, activePage, mainPrayerTimes, chronologicalGridTimes]);
 
   const countdownInfo = useMemo<CountdownInfo>(() => {
+    const targetSet = activePage === 0 ? mainPrayerTimes : chronologicalGridTimes;
+    const tomorrowSet = activePage === 0 ? tomorrowMainPrayerTimes : chronologicalTomorrowGridTimes;
+
+    if (!targetSet || targetSet.length === 0) {
+      return { name: 'Vakit', id: 'vakit', h: '00', m: '00', s: '00', progress: 0 };
+    }
+
     const currentMinutesTotal = now.getHours() * 60 + now.getMinutes();
-    const targetSet = mainPrayerTimes;
 
     let nextIndex = targetSet.findIndex(p => timeToMinutes(p.time) > currentMinutesTotal);
     let nextTime = nextIndex !== -1 ? targetSet[nextIndex] : undefined;
@@ -53,13 +73,14 @@ export function useTimer(
     let prevDate = new Date(now);
 
     if (!nextTime) {
-      // Past the last prayer of the day (e.g. after Yatsı) -> next is tomorrow's first prayer
-      const tomorrowSet = tomorrowMainPrayerTimes;
+      // Past the last prayer of the day (e.g. after Yatsı or after İşâ-i sânî)
+      // -> next is tomorrow's first prayer
       nextTime = tomorrowSet[0] || targetSet[0];
       targetDate.setDate(targetDate.getDate() + 1);
       prevTime = targetSet[targetSet.length - 1];
     } else if (!prevTime) {
-      // Before today's first prayer (between midnight and İmsak) -> previous was yesterday's last prayer
+      // Before today's first prayer (between midnight and first prayer)
+      // -> previous was yesterday's last prayer
       prevTime = targetSet[targetSet.length - 1];
       prevDate.setDate(prevDate.getDate() - 1);
     }
@@ -86,7 +107,14 @@ export function useTimer(
       s: pad(diffSec % 60),
       progress,
     };
-  }, [now, mainPrayerTimes, tomorrowMainPrayerTimes]);
+  }, [
+    now,
+    activePage,
+    mainPrayerTimes,
+    chronologicalGridTimes,
+    tomorrowMainPrayerTimes,
+    chronologicalTomorrowGridTimes,
+  ]);
 
   return { now, countdownInfo, activePrayerId };
 }

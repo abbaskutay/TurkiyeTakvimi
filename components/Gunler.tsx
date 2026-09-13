@@ -8,12 +8,42 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { MoonStar, Sun, Moon } from 'lucide-react-native';
+import { MoonStar, Sun, Moon, Globe } from 'lucide-react-native';
 import { ImportantDay } from '../types';
 import { COLORS, MOCK_IMPORTANT_DAYS, mapCalendarToImportantDays } from '../constants';
 import { turkTakvimApi } from '../services/turkTakvimApi';
 import { storageService } from '../services/storageService';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageModal } from './LanguageModal';
+import { formatGregorianDate, formatHicriDate } from '../utils/dateUtils';
+import { translations } from '../locales';
+
+function getLocalizedDayName(name: string, holyDaysDict: Record<string, string>): string {
+  if (!holyDaysDict) return name;
+  const lower = name.toLowerCase();
+  if (lower.includes('mi’râc') || lower.includes("mi'râc") || lower.includes('mirac')) return holyDaysDict.mirac || name;
+  if (lower.includes('berât') || lower.includes('berat')) return holyDaysDict.berat || name;
+  if (lower.includes('ramezân') || (lower.includes('ramazan') && lower.includes('başlangıç'))) return holyDaysDict.ramazan_start || name;
+  if (lower.includes('kadir')) return holyDaysDict.kadir || name;
+  if (lower.includes('fıtr bayramı gecesi')) return holyDaysDict.fitr_eve || name;
+  if (lower.includes('fıtr') && lower.includes('1.')) return holyDaysDict.fitr_day1 || name;
+  if (lower.includes('fıtr') && lower.includes('2.')) return holyDaysDict.fitr_day2 || name;
+  if (lower.includes('fıtr') && lower.includes('3.')) return holyDaysDict.fitr_day3 || name;
+  if (lower.includes('terviye')) return holyDaysDict.terviye || name;
+  if (lower.includes('arefe')) return holyDaysDict.arefe || name;
+  if (lower.includes('kurban') && lower.includes('1.')) return holyDaysDict.adha_day1 || name;
+  if (lower.includes('kurban') && lower.includes('2.')) return holyDaysDict.adha_day2 || name;
+  if (lower.includes('kurban') && lower.includes('3.')) return holyDaysDict.adha_day3 || name;
+  if (lower.includes('kurban') && lower.includes('4.')) return holyDaysDict.adha_day4 || name;
+  if (lower.includes('senebaşı') || lower.includes('yılbaşı günü')) return holyDaysDict.hijri_year || name;
+  if (lower.includes('muharrem') && lower.includes('gecesi')) return holyDaysDict.hijri_eve || name;
+  if (lower.includes('aşûre gecesi') || lower.includes('asure gecesi')) return holyDaysDict.asure_eve || name;
+  if (lower.includes('aşûre') || lower.includes('asure')) return holyDaysDict.asure_day || name;
+  if (lower.includes('mevlid')) return holyDaysDict.mevlid || name;
+  if (lower.includes('regâib') || lower.includes('regaib')) return holyDaysDict.regaib || name;
+  return name;
+}
 
 interface GunlerProps {
   isDarkMode?: boolean;
@@ -21,10 +51,12 @@ interface GunlerProps {
 
 export const Gunler: React.FC<GunlerProps> = () => {
   const { isDarkMode, theme, toggleTheme } = useTheme();
+  const { language, t, isRTL } = useLanguage();
   const currentYear = new Date().getFullYear();
   const [importantDays, setImportantDays] = useState<ImportantDay[]>(MOCK_IMPORTANT_DAYS);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
 
   const fetchImportantDays = useCallback(async (forceRefresh = false) => {
     // Serve the cached year list immediately; keeps the screen usable offline
@@ -73,19 +105,29 @@ export const Gunler: React.FC<GunlerProps> = () => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header Banner */}
       <View style={[styles.headerBanner, { backgroundColor: theme.headerBg }]}>
-        <View style={styles.headerTopRow}>
-          <View>
-            <Text style={styles.headerTitle}>MÜBAREK GÜNLER</Text>
-            <Text style={styles.headerSubtitle}>DİNİ TAKVİM</Text>
+        <View style={[styles.headerTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={isRTL && { alignItems: 'flex-end' }}>
+            <Text style={styles.headerTitle}>{t('days.title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('days.subtitle')}</Text>
           </View>
-          <TouchableOpacity
-            onPress={toggleTheme}
-            activeOpacity={0.8}
-            style={styles.headerThemeBtn}
-            accessibilityLabel="Temayı Değiştir"
-          >
-            {isDarkMode ? <Sun size={17} color="#ffffff" /> : <Moon size={17} color="#ffffff" />}
-          </TouchableOpacity>
+          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => setShowLanguageModal(true)}
+              activeOpacity={0.8}
+              style={styles.headerThemeBtn}
+              accessibilityLabel={t('language.changeLanguage')}
+            >
+              <Globe size={17} color="#ffffff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={toggleTheme}
+              activeOpacity={0.8}
+              style={styles.headerThemeBtn}
+              accessibilityLabel={t('common.themeToggle')}
+            >
+              {isDarkMode ? <Sun size={17} color="#ffffff" /> : <Moon size={17} color="#ffffff" />}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.yearCenterCol}>
@@ -98,7 +140,7 @@ export const Gunler: React.FC<GunlerProps> = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={[styles.loadingText, { color: theme.textMuted }]}>
-            Dini günler güncelleniyor...
+            {t('days.loadingDays')}
           </Text>
         </View>
       ) : (
@@ -114,43 +156,79 @@ export const Gunler: React.FC<GunlerProps> = () => {
               tintColor={COLORS.primary}
             />
           }
-          renderItem={({ item }) => (
-            <View style={[styles.holidayCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <View style={[styles.holidaySideBar, { backgroundColor: isDarkMode ? COLORS.accentRed : COLORS.primary }]} />
+          renderItem={({ item }) => {
+            const localizedName = getLocalizedDayName(item.name, translations[language]?.holyDays || {});
+            const localizedGregorian = item.id ? formatGregorianDate(item.id, language) : item.dateGregorian;
+            const localizedHijri = (item.hicriRaw || item.dateHijri)
+              ? formatHicriDate(item.hicriRaw || item.dateHijri, language)
+              : item.dateHijri;
 
-              <View style={styles.holidayCardBody}>
-                {/* OnemliGun Turu Badge (Disabled for now) */}
-                {/* <View style={styles.holidayBadgeRow}>
-                  <MoonStar size={14} color={isDarkMode ? COLORS.accentRed : COLORS.primary} />
-                  <Text style={[styles.holidayBadgeText, { color: theme.textMuted }]}>DİNİ GÜN</Text>
-                </View> */}
+            return (
+              <View
+                style={[
+                  styles.holidayCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.cardBorder,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.holidaySideBar,
+                    { backgroundColor: isDarkMode ? COLORS.accentRed : COLORS.primary },
+                  ]}
+                />
 
-                <Text style={[styles.holidayNameText, { color: theme.textPrimary }]}>
-                  {item.name}
-                </Text>
+                <View style={styles.holidayCardBody}>
+                  <Text
+                    style={[
+                      styles.holidayNameText,
+                      { color: theme.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                    ]}
+                  >
+                    {localizedName}
+                  </Text>
 
-                <View style={[styles.datesFooterRow, { borderTopColor: theme.cardBorder }]}>
-                  <View style={styles.dateCol}>
-                    <Text style={[styles.dateMainValue, { color: theme.textPrimary }]}>
-                      {item.dateGregorian}
-                    </Text>
-                    <Text style={[styles.dateSubLabel, { color: theme.textMuted }]}>MİLADİ</Text>
-                  </View>
+                  <View
+                    style={[
+                      styles.datesFooterRow,
+                      { borderTopColor: theme.cardBorder, flexDirection: isRTL ? 'row-reverse' : 'row' },
+                    ]}
+                  >
+                    <View style={[styles.dateCol, isRTL && { alignItems: 'flex-end' }]}>
+                      <Text style={[styles.dateMainValue, { color: theme.textPrimary }]}>
+                        {localizedGregorian}
+                      </Text>
+                      <Text style={[styles.dateSubLabel, { color: theme.textMuted }]}>
+                        {t('days.gregorianLabel')}
+                      </Text>
+                    </View>
 
-                  <View style={[styles.dateDivider, { backgroundColor: theme.cardBorder }]} />
+                    <View style={[styles.dateDivider, { backgroundColor: theme.cardBorder }]} />
 
-                  <View style={[styles.dateCol, { alignItems: 'flex-end' }]}>
-                    <Text style={[styles.dateMainValue, { color: theme.textPrimary }]}>
-                      {item.dateHijri}
-                    </Text>
-                    <Text style={[styles.dateSubLabel, { color: theme.textMuted }]}>HİCRİ</Text>
+                    <View style={[styles.dateCol, isRTL ? { alignItems: 'flex-start' } : { alignItems: 'flex-end' }]}>
+                      <Text style={[styles.dateMainValue, { color: theme.textPrimary }]}>
+                        {localizedHijri}
+                      </Text>
+                      <Text style={[styles.dateSubLabel, { color: theme.textMuted }]}>
+                        {t('days.hijriLabel')}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
+
+      {/* Language Selection Modal */}
+      <LanguageModal
+        visible={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
+      />
     </View>
   );
 };

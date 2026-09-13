@@ -4,6 +4,7 @@ import { X } from 'lucide-react-native';
 import { ReminderConfig } from '../../types';
 import { COLORS } from '../../constants';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface ReminderModalProps {
   showSettings: string | null;
@@ -21,6 +22,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   updateOffset,
 }) => {
   const { isDarkMode, theme } = useTheme();
+  const { t, getPrayerName, isRTL, toUpper } = useLanguage();
 
   if (!showSettings) return null;
 
@@ -33,8 +35,10 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
     >
       <View style={styles.modalOverlay}>
         <View style={[styles.modalSheet, { backgroundColor: theme.card }]}>
-          <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Bildirim Ayarları</Text>
+          <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+              {getPrayerName(showSettings)} - {t('reminders.title')}
+            </Text>
             <TouchableOpacity
               onPress={() => setShowSettings(null)}
               style={[styles.modalCloseBtn, { backgroundColor: isDarkMode ? '#222' : '#f3f4f6' }]}
@@ -45,8 +49,18 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
 
           <View style={styles.modalBody}>
             {/* Toggle Switch */}
-            <View style={[styles.modalOptionRow, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f9fafb' }]}>
-              <Text style={[styles.modalOptionLabel, { color: theme.textPrimary }]}>Bildirim Durumu</Text>
+            <View
+              style={[
+                styles.modalOptionRow,
+                {
+                  backgroundColor: isDarkMode ? '#1a1a1a' : '#f9fafb',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+            >
+              <Text style={[styles.modalOptionLabel, { color: theme.textPrimary }]}>
+                {t('reminders.subtitle')}
+              </Text>
               <TouchableOpacity
                 onPress={() => toggleReminder(showSettings)}
                 style={[
@@ -67,8 +81,15 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
 
             {/* Offset Options */}
             <View style={styles.offsetSection}>
-              <Text style={[styles.offsetSectionTitle, { color: theme.textMuted }]}>SÜRE SEÇİMİ</Text>
-              <View style={styles.offsetGrid}>
+              <Text
+                style={[
+                  styles.offsetSectionTitle,
+                  { color: theme.textMuted, textAlign: isRTL ? 'right' : 'left' },
+                ]}
+              >
+                {toUpper(t('reminders.title'))}
+              </Text>
+              <View style={[styles.offsetGrid, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                 {[0, 5, 10, 15, 30].map(off => {
                   const isSelected = reminders[showSettings]?.offset === off;
                   return (
@@ -88,7 +109,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
                           { color: isSelected ? '#ffffff' : theme.textSecondary },
                         ]}
                       >
-                        {off === 0 ? 'Vakit' : `${off}dk`}
+                        {off === 0 ? t('reminders.atTime') : `${off}m`}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -100,7 +121,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
               onPress={() => setShowSettings(null)}
               style={[styles.modalSaveButton, { backgroundColor: COLORS.primary }]}
             >
-              <Text style={styles.modalSaveButtonText}>KAYDET</Text>
+              <Text style={styles.modalSaveButtonText}>{toUpper(t('common.save'))}</Text>
             </TouchableOpacity>
           </View>
         </View>

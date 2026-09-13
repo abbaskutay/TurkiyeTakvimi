@@ -167,6 +167,43 @@ export function extractApiText(field: unknown): string {
 }
 
 /**
+ * Detects whether an error was caused by request abort/cancellation,
+ * handling browser DOMException AbortError, Node.js AbortError, and
+ * React Native / Expo NativeResponse.swift FetchRequestCanceledException.
+ */
+export function isAbortError(error: unknown, signal?: AbortSignal | null): boolean {
+  if (signal?.aborted) {
+    return true;
+  }
+  if (!error) return false;
+  if (error instanceof Error) {
+    if (
+      error.name === 'AbortError' ||
+      error.name === 'CanceledError' ||
+      error.name === 'CancellationError'
+    ) {
+      return true;
+    }
+    const msg = (error.message || '').toLowerCase();
+    if (
+      msg.includes('canceled') ||
+      msg.includes('cancelled') ||
+      msg.includes('abort') ||
+      msg.includes('fetchrequestcanceledexception')
+    ) {
+      return true;
+    }
+  }
+  const str = String(error).toLowerCase();
+  return (
+    str.includes('canceled') ||
+    str.includes('cancelled') ||
+    str.includes('abort') ||
+    str.includes('fetchrequestcanceledexception')
+  );
+}
+
+/**
  * Fetches a URL, retrying over plain HTTP if the HTTPS request fails.
  *
  * @param url request URL
@@ -181,7 +218,7 @@ async function safeFetch(url: string, options?: RequestInit): Promise<Response> 
     }
     return response;
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (isAbortError(error, options?.signal)) {
       throw error;
     }
     console.warn(`safeFetch: https request failed for ${url}:`, error);
@@ -190,6 +227,9 @@ async function safeFetch(url: string, options?: RequestInit): Promise<Response> 
       try {
         return await fetch(httpUrl, options);
       } catch (httpError) {
+        if (isAbortError(httpError, options?.signal)) {
+          throw httpError;
+        }
         console.warn(`safeFetch: http fallback also failed for ${httpUrl}:`, httpError);
         throw error;
       }
@@ -334,7 +374,7 @@ export const turkTakvimApi = {
       }
       return list;
     } catch (e: unknown) {
-      if (e instanceof Error && e.name === 'AbortError') {
+      if (isAbortError(e, signal)) {
         return [];
       }
       console.error('searchCities error:', e);

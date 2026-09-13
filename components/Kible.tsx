@@ -21,6 +21,8 @@ import {
   parseCityCoordinates,
   NamazVaktiQiblaData,
 } from '../utils/qiblaUtils';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageModal } from './LanguageModal';
 import { CompassDial } from './kible/CompassDial';
 import { QiblaInfoBoard } from './kible/QiblaInfoBoard';
 import { QiblaHeader } from './kible/QiblaHeader';
@@ -37,12 +39,14 @@ type AngleReference = 'magnetic' | 'geographic';
 export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
   const { isDarkMode, theme, toggleTheme } = useTheme();
   const { currentCity: contextCity } = useCity();
+  const { t, isRTL, toUpper } = useLanguage();
   const currentCity = propCity || contextCity;
 
   const [locationSource, setLocationSource] = useState<LocationSource>('city');
   const [angleReference, setAngleReference] = useState<AngleReference>('magnetic');
   const [userOffset, setUserOffsetState] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
 
   // Restore the saved compass calibration offset
   useEffect(() => {
@@ -227,6 +231,7 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
         headerBg={theme.headerBg}
         onToggleTheme={toggleTheme}
         onRefresh={handleRefresh}
+        onOpenLanguageModal={() => setShowLanguageModal(true)}
       />
 
       {/* Location & Angle Mode Selectors */}
@@ -251,11 +256,13 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
         {/* Live Compass Section */}
         <View style={styles.compassSection}>
           {isAligned ? (
-            <View style={styles.alignedBanner}>
+            <View style={[styles.alignedBanner, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <CheckCircle2 size={22} color="#ffffff" />
-              <View>
-                <Text style={styles.alignedBannerTitle}>KIBLEYE HİZALANDI</Text>
-                <Text style={styles.alignedBannerSubtitle}>Telefonunuz tam Kâbe yönüne bakıyor</Text>
+              <View style={isRTL && { alignItems: 'flex-end' }}>
+                <Text style={styles.alignedBannerTitle}>{t('qibla.qiblaFound')}</Text>
+                <Text style={styles.alignedBannerSubtitle}>
+                  {qiblaData.compassAngle}°
+                </Text>
               </View>
             </View>
           ) : (
@@ -267,16 +274,16 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
                 ]}
               >
                 {angleReference === 'magnetic'
-                  ? 'TÜRK TAKVİMİ PUSULA AÇISI'
-                  : 'COĞRAFİ KUZEY AÇISI'}
+                  ? toUpper(t('qibla.compassAngle').replace(':', ''))
+                  : toUpper(t('qibla.geographicNorth').replace(':', ''))}
               </Text>
               <Text style={[styles.angleBigText, { color: theme.textPrimary }]}>
                 {loading ? '---' : `${baseTargetAngle}°`}
               </Text>
               <Text style={[styles.modelSubText, { color: theme.textMuted }]}>
                 {compassAvailable
-                  ? `Pusula Yönü: ${Math.round(effectiveTrueHeading)}° • Hedef Açısı: ${baseTargetAngle}°`
-                  : 'Pusula Sensörü Hazır Değil'}
+                  ? `${t('qibla.currentBearing')}: ${Math.round(effectiveTrueHeading)}° • ${t('qibla.targetQibla')}: ${baseTargetAngle}°`
+                  : t('qibla.calibrationNotice')}
               </Text>
             </View>
           )}
@@ -287,6 +294,8 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
             targetNeedleAngle={targetNeedleAngle}
             isAligned={isAligned}
             isDarkMode={isDarkMode}
+            needleLabel={toUpper(t('tabs.kible'))}
+            isRTL={isRTL}
           />
         </View>
 
@@ -301,9 +310,15 @@ export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
         />
 
         <Text style={[styles.footnoteText, { color: theme.textMuted }]}>
-          Türkiye Takvimi rasat ve hesaplama metotları baz alınmıştır. (namazvakti.com/theQibla.php)
+          {t('qibla.footnote')}
         </Text>
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <LanguageModal
+        visible={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
+      />
     </View>
   );
 };
@@ -356,7 +371,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
-    textTransform: 'uppercase',
   },
   angleBigText: {
     fontSize: 38,

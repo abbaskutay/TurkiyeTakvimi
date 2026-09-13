@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { RefreshCw, Sun, Moon } from 'lucide-react-native';
+import { RefreshCw, Sun, Moon, Globe } from 'lucide-react-native';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface QiblaHeaderProps {
   cityName: string;
@@ -11,6 +12,7 @@ interface QiblaHeaderProps {
   headerBg: string;
   onToggleTheme: () => void;
   onRefresh: () => void;
+  onOpenLanguageModal?: () => void;
 }
 
 export const QiblaHeader: React.FC<QiblaHeaderProps> = ({
@@ -22,23 +24,39 @@ export const QiblaHeader: React.FC<QiblaHeaderProps> = ({
   headerBg,
   onToggleTheme,
   onRefresh,
+  onOpenLanguageModal,
 }) => {
+  const { language, isRTL, t, toUpper } = useLanguage();
+
   return (
-    <View style={[styles.headerBanner, { backgroundColor: headerBg }]}>
-      <View style={styles.headerLeft}>
-        <Text style={styles.headerTitle}>KIBLE TAYİNİ</Text>
-        <Text style={styles.headerSubtitle} numberOfLines={1}>
-          {cityName.toUpperCase()} • {locationSource === 'gps' ? 'CANLI GPS' : 'TÜRK TAKVİMİ'}
-          {isOffline ? ' • ÇEVRİMDIŞI' : ''}
+    <View style={[styles.headerBanner, { backgroundColor: headerBg, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+      <View style={[styles.headerLeft, isRTL && { alignItems: 'flex-end' }]}>
+        <Text style={[styles.headerTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+          {t('qibla.title')}
+        </Text>
+        <Text style={[styles.headerSubtitle, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+          {toUpper(cityName)} • {locationSource === 'gps' ? t('qibla.liveGps') : t('qibla.turkTakvim')}
+          {isOffline ? ` • ${t('qibla.offlineStatus')}` : ''}
         </Text>
       </View>
 
-      <View style={styles.headerRightActions}>
+      <View style={[styles.headerRightActions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        {onOpenLanguageModal && (
+          <TouchableOpacity
+            onPress={onOpenLanguageModal}
+            activeOpacity={0.8}
+            style={styles.headerActionBtn}
+            accessibilityLabel={t('language.changeLanguage')}
+          >
+            <Globe size={16} color="#ffffff" />
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           onPress={onToggleTheme}
           activeOpacity={0.8}
           style={styles.headerActionBtn}
-          accessibilityLabel="Temayı Değiştir"
+          accessibilityLabel={t('common.themeToggle')}
         >
           {isDarkMode ? <Sun size={17} color="#ffffff" /> : <Moon size={17} color="#ffffff" />}
         </TouchableOpacity>
@@ -48,7 +66,7 @@ export const QiblaHeader: React.FC<QiblaHeaderProps> = ({
           disabled={loading}
           activeOpacity={0.7}
           style={styles.headerActionBtn}
-          accessibilityLabel="Yenile"
+          accessibilityLabel={t('common.refresh')}
         >
           {loading ? (
             <ActivityIndicator size="small" color="#ffffff" />

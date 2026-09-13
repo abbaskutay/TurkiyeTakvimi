@@ -49,6 +49,33 @@ describe('storageService - Theme Management', () => {
   });
 });
 
+describe('storageService - Language Preference', () => {
+  beforeEach(() => {
+    inMemoryStore.clear();
+  });
+
+  it('returns null when no language is saved', async () => {
+    const lang = await storageService.getLanguage();
+    assert.strictEqual(lang, null);
+  });
+
+  it('saves and retrieves language preferences (tr, en, ar)', async () => {
+    await storageService.setLanguage('en');
+    assert.strictEqual(await storageService.getLanguage(), 'en');
+
+    await storageService.setLanguage('ar');
+    assert.strictEqual(await storageService.getLanguage(), 'ar');
+
+    await storageService.setLanguage('tr');
+    assert.strictEqual(await storageService.getLanguage(), 'tr');
+  });
+
+  it('returns null if stored language is invalid', async () => {
+    inMemoryStore.set('ezan_language_v1', 'es');
+    assert.strictEqual(await storageService.getLanguage(), null);
+  });
+});
+
 describe('storageService - Saved Cities', () => {
   beforeEach(() => {
     inMemoryStore.clear();
@@ -229,3 +256,39 @@ describe('storageService - Last Synced Year Management', () => {
     assert.strictEqual(year, 2027);
   });
 });
+
+describe('storageService - Quote Translation & Gemini Key Management', () => {
+  beforeEach(() => {
+    inMemoryStore.clear();
+  });
+
+  it('saves and retrieves quote translations by date and language', async () => {
+    assert.strictEqual(await storageService.getCachedQuoteTranslation('2026-09-13', 'en'), null);
+
+    await storageService.setCachedQuoteTranslation(
+      '2026-09-13',
+      'en',
+      'The rank of knowledge is the highest of ranks.'
+    );
+    const cachedEn = await storageService.getCachedQuoteTranslation('2026-09-13', 'en');
+    assert.strictEqual(cachedEn, 'The rank of knowledge is the highest of ranks.');
+
+    await storageService.setCachedQuoteTranslation(
+      '2026-09-13',
+      'ar',
+      'ومرتبة العلم أعلى الدرجات'
+    );
+    const cachedAr = await storageService.getCachedQuoteTranslation('2026-09-13', 'ar');
+    assert.strictEqual(cachedAr, 'ومرتبة العلم أعلى الدرجات');
+
+    // Different date returns null
+    assert.strictEqual(await storageService.getCachedQuoteTranslation('2026-09-14', 'en'), null);
+  });
+
+  it('saves and retrieves Gemini API key', async () => {
+    assert.strictEqual(await storageService.getGeminiApiKey(), null);
+    await storageService.setGeminiApiKey('AIzaSyTestKey123');
+    assert.strictEqual(await storageService.getGeminiApiKey(), 'AIzaSyTestKey123');
+  });
+});
+

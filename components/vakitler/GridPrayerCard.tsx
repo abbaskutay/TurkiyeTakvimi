@@ -4,6 +4,7 @@ import { Zap } from 'lucide-react-native';
 import { DetailedPrayerTime } from '../../types';
 import { COLORS } from '../../constants';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface GridPrayerCardProps {
   gridPrayerTimes: DetailedPrayerTime[][];
@@ -23,14 +24,20 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
   getPrayerIcon,
 }) => {
   const { isDarkMode, theme } = useTheme();
+  const { getPrayerName, getPrayerSub, isRTL, toUpper } = useLanguage();
 
   return (
     <View style={[styles.gridContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       {gridPrayerTimes.map((row, rowIndex) => (
-        <View key={`row-${rowIndex}`} style={styles.gridRow}>
+        <View
+          key={`row-${rowIndex}`}
+          style={[styles.gridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+        >
           {row.map((item, colIndex) => {
             const isUpcoming = item.id === upcomingId && activePage === 1;
             const isActive = item.id === activePrayerId;
+            const prayerName = getPrayerName(item.id);
+            const prayerSub = getPrayerSub(item.id) || item.sub;
 
             return (
               <TouchableOpacity
@@ -39,7 +46,9 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                 onPress={() => setShowSettings(item.id)}
                 style={[
                   styles.gridCell,
-                  colIndex === 0 && { borderRightWidth: 1, borderRightColor: theme.cardBorder },
+                  colIndex === 0 && (isRTL
+                    ? { borderLeftWidth: 1, borderLeftColor: theme.cardBorder }
+                    : { borderRightWidth: 1, borderRightColor: theme.cardBorder }),
                   rowIndex < gridPrayerTimes.length - 1 && {
                     borderBottomWidth: 1,
                     borderBottomColor: theme.cardBorder,
@@ -51,8 +60,18 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                     : null,
                 ]}
               >
-                <View style={styles.gridCellHeader}>
-                  <View style={styles.gridCellTitleRow}>
+                <View
+                  style={[
+                    styles.gridCellHeader,
+                    { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.gridCellTitleRow,
+                      { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                    ]}
+                  >
                     {getPrayerIcon(
                       item.id,
                       14,
@@ -69,25 +88,29 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                               ? COLORS.accentRed
                               : COLORS.primary
                             : theme.textSecondary,
+                          textAlign: isRTL ? 'right' : 'left',
                         },
                       ]}
                       numberOfLines={1}
                     >
-                      {item.name}
+                      {toUpper(prayerName)}
                     </Text>
                   </View>
                   {isUpcoming && <Zap size={12} color="#ffffff" />}
                 </View>
 
-                {item.sub ? (
+                {prayerSub ? (
                   <Text
                     style={[
                       styles.gridCellSub,
-                      { color: isUpcoming ? 'rgba(255,255,255,0.6)' : theme.textMuted },
+                      {
+                        color: isUpcoming ? 'rgba(255,255,255,0.6)' : theme.textMuted,
+                        textAlign: isRTL ? 'right' : 'left',
+                      },
                     ]}
                     numberOfLines={1}
                   >
-                    {item.sub}
+                    {prayerSub}
                   </Text>
                 ) : null}
 
@@ -96,6 +119,7 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                     styles.gridCellTime,
                     {
                       color: isUpcoming ? '#ffffff' : theme.textPrimary,
+                      textAlign: isRTL ? 'right' : 'left',
                     },
                   ]}
                 >
@@ -150,7 +174,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   gridCellSub: {
     fontSize: 9,

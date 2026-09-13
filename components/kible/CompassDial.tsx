@@ -18,6 +18,8 @@ interface CompassDialProps {
   targetNeedleAngle: number;
   isAligned: boolean;
   isDarkMode: boolean;
+  needleLabel?: string;
+  isRTL?: boolean;
 }
 
 export const CompassDial: React.FC<CompassDialProps> = ({
@@ -25,6 +27,8 @@ export const CompassDial: React.FC<CompassDialProps> = ({
   targetNeedleAngle,
   isAligned,
   isDarkMode,
+  needleLabel = 'KIBLE',
+  isRTL = false,
 }) => {
   return (
     <View style={[styles.compassWrapper, isAligned && styles.alignedCompassWrapper]}>
@@ -159,7 +163,7 @@ export const CompassDial: React.FC<CompassDialProps> = ({
             <Rect y="5" width="16" height="2.5" fill="#d4af37" />
           </G>
 
-          {/* KIBLE Label on Arrow Shaft */}
+          {/* Needle Label on Arrow Shaft */}
           <SvgText
             x="100"
             y="68"
@@ -167,9 +171,9 @@ export const CompassDial: React.FC<CompassDialProps> = ({
             textAnchor="middle"
             fill="#ffffff"
             fontWeight="900"
-            letterSpacing="0.8"
+            letterSpacing={isRTL ? '0' : '0.8'}
           >
-            KIBLE
+            {needleLabel}
           </SvgText>
 
           {/* Rear Tail (Pointing DOWN to South / opposite) */}

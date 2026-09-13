@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { turkTakvimApi, extractApiText } from '../services/turkTakvimApi';
+import { turkTakvimApi, extractApiText, isAbortError } from '../services/turkTakvimApi';
 
 const originalFetch = globalThis.fetch;
 
@@ -143,6 +143,31 @@ describe('turkTakvimApi - Mocked Network Calls & Parsers', () => {
 
     const results = await turkTakvimApi.searchCities('Istanbul');
     assert.deepStrictEqual(results, []);
+  });
+
+  it('searchCities handles Expo/iOS FetchRequestCanceledException cleanly and returns empty array', async () => {
+    mockFetchHandler = async () => {
+      throw new Error('fetch failed: FetchRequestCanceledException: Fetch request has been canceled (at Expo/NativeResponse.swift:63)');
+    };
+
+    const results = await turkTakvimApi.searchCities('Istanbul');
+    assert.deepStrictEqual(results, []);
+  });
+
+  it('isAbortError accurately detects all forms of cancellation', () => {
+    const domAbort = new Error('The user aborted a request.');
+    domAbort.name = 'AbortError';
+    assert.strictEqual(isAbortError(domAbort), true);
+
+    const expoSwiftError = new Error('fetch failed: FetchRequestCanceledException: Fetch request has been canceled (at Expo/NativeResponse.swift:63)');
+    assert.strictEqual(isAbortError(expoSwiftError), true);
+
+    const controller = new AbortController();
+    controller.abort();
+    assert.strictEqual(isAbortError(new Error('Unknown network error'), controller.signal), true);
+
+    const realNetworkError = new Error('Network request failed');
+    assert.strictEqual(isAbortError(realNetworkError), false);
   });
 
   it('getPrayerTimes unwraps nested cityinfo.vakit structure correctly', async () => {
