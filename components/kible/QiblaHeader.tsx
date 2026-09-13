@@ -48,7 +48,7 @@ export const QiblaHeader: React.FC<QiblaHeaderProps> = ({
             style={styles.headerActionBtn}
             accessibilityLabel={t('language.changeLanguage')}
           >
-            <Globe size={16} color="#ffffff" />
+            <Globe size={22} color="#ffffff" />
           </TouchableOpacity>
         )}
 
@@ -58,7 +58,7 @@ export const QiblaHeader: React.FC<QiblaHeaderProps> = ({
           style={styles.headerActionBtn}
           accessibilityLabel={t('common.themeToggle')}
         >
-          {isDarkMode ? <Sun size={17} color="#ffffff" /> : <Moon size={17} color="#ffffff" />}
+          {isDarkMode ? <Sun size={22} color="#ffffff" /> : <Moon size={22} color="#ffffff" />}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -71,7 +71,7 @@ export const QiblaHeader: React.FC<QiblaHeaderProps> = ({
           {loading ? (
             <ActivityIndicator size="small" color="#ffffff" />
           ) : (
-            <RefreshCw size={17} color="#ffffff" />
+            <RefreshCw size={22} color="#ffffff" />
           )}
         </TouchableOpacity>
       </View>
@@ -111,9 +111,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',

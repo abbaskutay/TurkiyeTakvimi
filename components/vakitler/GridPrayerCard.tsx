@@ -166,14 +166,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   gridCellTitleRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginRight: 4,
   },
   gridCellName: {
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
+    flexShrink: 1,
   },
   gridCellSub: {
     fontSize: 9,

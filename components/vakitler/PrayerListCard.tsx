@@ -45,7 +45,7 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
           },
         ]}
       >
-        <Text style={[styles.cardHeaderTitle, { color: theme.textMuted }]}>
+        <Text style={[styles.cardHeaderTitle, { color: theme.textMuted }]} numberOfLines={1}>
           {toUpper(t('vakitler.mainPrayers'))}
         </Text>
         {onToggleAllReminders && (
@@ -85,7 +85,13 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                 : null,
             ]}
           >
-            <View style={[styles.prayerRowLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View
+              style={[
+                styles.prayerRowLeft,
+                { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                isRTL ? { marginLeft: 8 } : { marginRight: 8 },
+              ]}
+            >
               <View
                 style={[
                   styles.prayerIconBox,
@@ -118,6 +124,7 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                         textAlign: isRTL ? 'right' : 'left',
                       },
                     ]}
+                    numberOfLines={1}
                   >
                     {getPrayerName(prayer.id)}
                   </Text>
@@ -207,6 +214,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1.2,
+    flexShrink: 1,
+    marginRight: 8,
   },
   toggleAllBtn: {
     flexDirection: 'row',
@@ -216,6 +225,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     backgroundColor: 'rgba(160, 24, 38, 0.06)',
+    flexShrink: 0,
   },
   toggleAllText: {
     fontSize: 10.5,
@@ -233,6 +243,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   prayerRowLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -243,20 +254,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    flexShrink: 0,
   },
   upcomingIconBox: {
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   prayerInfoCol: {
+    flex: 1,
     justifyContent: 'center',
   },
   prayerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   prayerName: {
     fontSize: 17,
     fontWeight: '800',
+    flexShrink: 1,
   },
   upcomingBadge: {
     backgroundColor: '#ffffff',
@@ -264,6 +279,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
     marginLeft: 8,
+    flexShrink: 0,
   },
   upcomingBadgeText: {
     fontSize: 8.5,
@@ -279,6 +295,7 @@ const styles = StyleSheet.create({
   prayerRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   prayerTimeText: {
     fontSize: 20,

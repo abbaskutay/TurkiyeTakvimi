@@ -382,6 +382,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
   footnoteText: {
     fontSize: 10,

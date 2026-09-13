@@ -226,15 +226,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#0d9488',
+    flexShrink: 0,
   },
   magSapmaVal: {
     fontSize: 13,
     fontWeight: '700',
+    flexShrink: 0,
   },
   pusulaKuzeyVal: {
     fontSize: 14,
     fontWeight: '800',
     color: '#dc2626',
+    flexShrink: 0,
   },
   kibleSaatiRow: {
     backgroundColor: 'rgba(217,119,6,0.06)',
@@ -246,10 +249,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#d97706',
+    flexShrink: 0,
   },
   distanceVal: {
     fontSize: 13,
     fontWeight: '700',
+    flexShrink: 0,
   },
   fineTuneBox: {
     marginTop: 12,

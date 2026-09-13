@@ -117,7 +117,7 @@ export const Gunler: React.FC<GunlerProps> = () => {
               style={styles.headerThemeBtn}
               accessibilityLabel={t('language.changeLanguage')}
             >
-              <Globe size={17} color="#ffffff" />
+              <Globe size={23} color="#ffffff" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={toggleTheme}
@@ -125,7 +125,7 @@ export const Gunler: React.FC<GunlerProps> = () => {
               style={styles.headerThemeBtn}
               accessibilityLabel={t('common.themeToggle')}
             >
-              {isDarkMode ? <Sun size={17} color="#ffffff" /> : <Moon size={17} color="#ffffff" />}
+              {isDarkMode ? <Sun size={23} color="#ffffff" /> : <Moon size={23} color="#ffffff" />}
             </TouchableOpacity>
           </View>
         </View>
@@ -260,9 +260,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headerThemeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',

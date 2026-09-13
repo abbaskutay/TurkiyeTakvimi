@@ -36,7 +36,14 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       <View style={styles.modalOverlay}>
         <View style={[styles.modalSheet, { backgroundColor: theme.card }]}>
           <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: theme.textPrimary, textAlign: isRTL ? 'right' : 'left' },
+                isRTL ? { marginLeft: 10 } : { marginRight: 10 },
+              ]}
+              numberOfLines={1}
+            >
               {getPrayerName(showSettings)} - {t('reminders.title')}
             </Text>
             <TouchableOpacity
@@ -151,10 +158,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '900',
+    flex: 1,
   },
   modalCloseBtn: {
     padding: 8,
     borderRadius: 20,
+    flexShrink: 0,
   },
   modalBody: {
     gap: 20,

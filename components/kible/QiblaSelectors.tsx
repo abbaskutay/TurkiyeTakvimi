@@ -67,6 +67,7 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
                     : textMuted,
               },
             ]}
+            numberOfLines={1}
           >
             {cityName}
           </Text>
@@ -95,6 +96,7 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
               styles.sourcePillText,
               { color: locationSource === 'gps' ? '#16a34a' : textMuted },
             ]}
+            numberOfLines={1}
           >
             {t('qibla.liveGps')}
           </Text>
@@ -113,8 +115,8 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
                 angleReference === 'magnetic'
                   ? '#dc2626'
                   : isDarkMode
-                  ? '#1f2937'
-                  : '#f3f4f6',
+                    ? '#1f2937'
+                    : '#f3f4f6',
             },
           ]}
         >
@@ -123,8 +125,9 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
               styles.refBadgeText,
               { color: angleReference === 'magnetic' ? '#ffffff' : textSecondary },
             ]}
+            numberOfLines={1}
           >
-            {t('qibla.compassAngle').replace(':', '')} ({compassAngle}°)
+            {t('qibla.compassPill')} ({compassAngle}°)
           </Text>
         </TouchableOpacity>
 
@@ -138,8 +141,8 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
                 angleReference === 'geographic'
                   ? '#0d9488'
                   : isDarkMode
-                  ? '#1f2937'
-                  : '#f3f4f6',
+                    ? '#1f2937'
+                    : '#f3f4f6',
             },
           ]}
         >
@@ -148,8 +151,9 @@ export const QiblaSelectors: React.FC<QiblaSelectorsProps> = ({
               styles.refBadgeText,
               { color: angleReference === 'geographic' ? '#ffffff' : textSecondary },
             ]}
+            numberOfLines={1}
           >
-            {t('qibla.geographicNorth').replace(':', '')} ({Math.round(geographicAngle)}°)
+            {t('qibla.geographicPill')} ({Math.round(geographicAngle)}°)
           </Text>
         </TouchableOpacity>
       </View>
@@ -178,21 +182,25 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
+    maxWidth: '65%',
   },
   sourcePillText: {
     fontSize: 12,
     fontWeight: '700',
+    flexShrink: 1,
   },
   referenceSelectorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    flexWrap: 'wrap',
   },
   refBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
+    flexShrink: 1,
   },
   refBadgeText: {
     fontSize: 11,

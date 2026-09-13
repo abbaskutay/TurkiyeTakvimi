@@ -64,7 +64,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({ visible, onClose }
                       color={isDarkMode ? COLORS.accentRed : COLORS.primary}
                     />
                   </View>
-                  <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+                  <Text style={[styles.headerTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                     {t('language.title')}
                   </Text>
                 </View>
@@ -185,9 +185,11 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(150, 150, 150, 0.15)',
   },
   headerTitleGroup: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    marginRight: 8,
   },
   iconCircle: {
     width: 36,
@@ -195,15 +197,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.3,
+    flexShrink: 1,
   },
   closeBtn: {
     padding: 6,
     borderRadius: 16,
+    flexShrink: 0,
   },
   listContainer: {
     gap: 10,

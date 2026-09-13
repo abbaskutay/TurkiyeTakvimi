@@ -145,7 +145,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
       return calendarDetail.gununSozu ? '— تقويم تركيا' : '— ابن عباس (رضي الله عنه)';
     }
     if (language === 'en') {
-      return calendarDetail.gununSozu ? '— Türkiye Takvimi' : '— Ibn Abbas (r.a.)';
+      return calendarDetail.gununSozu ? '— Turkiye Calendar' : '— Ibn Abbas (r.a.)';
     }
     return calendarDetail.gununSozu ? '— Türkiye Takvimi' : '— İbn-i Abbâs (r.a.)';
   }, [language, calendarDetail.gununSozu]);
@@ -297,7 +297,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
   const toggleReminder = async (id: string) => {
     const hasPermission = await notificationService.requestPermissions();
     if (!hasPermission) {
-      Alert.alert('İzin Gerekli', 'Bildirim gönderebilmek için bildirim izni vermeniz gerekmektedir.');
+      Alert.alert(t('reminders.notificationPermission'), t('reminders.notificationPermissionDesc'));
     }
     setReminders(prev => ({
       ...prev,
@@ -311,7 +311,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
   const toggleAllReminders = async () => {
     const hasPermission = await notificationService.requestPermissions();
     if (!hasPermission) {
-      Alert.alert('İzin Gerekli', 'Bildirim gönderebilmek için bildirim izni vermeniz gerekmektedir.');
+      Alert.alert(t('reminders.notificationPermission'), t('reminders.notificationPermissionDesc'));
     }
     const allEnabled = mainPrayerTimes.every(p => reminders[p.id]?.enabled);
     const updated: Record<string, ReminderConfig> = { ...reminders };
@@ -337,8 +337,8 @@ export const Vakitler: React.FC<VakitlerProps> = ({
   const handleShareQuote = async () => {
     const text = activeQuote;
     const shareTitle = language === 'ar' ? 'حكمة اليوم' : language === 'en' ? 'Quote of the Day' : 'Günün Sözü';
-    const appHeader = language === 'ar' ? '📜 تقويم تركيا - حكمة اليوم' : language === 'en' ? '📜 TÜRKİYE TAKVİMİ - QUOTE OF THE DAY' : '📜 TÜRKİYE TAKVİMİ - GÜNÜN SÖZÜ';
-    const appFooter = language === 'ar' ? '🕌 تطبيق تقويم تركيا' : '🕌 Türkiye Takvimi';
+    const appHeader = language === 'ar' ? '📜 تقويم تركيا - حكمة اليوم' : language === 'en' ? '📜 TURKIYE CALENDAR - QUOTE OF THE DAY' : '📜 TÜRKİYE TAKVİMİ - GÜNÜN SÖZÜ';
+    const appFooter = language === 'ar' ? '🕌 تطبيق تقويم تركيا' : language === 'en' ? '🕌 Turkiye Calendar' : '🕌 Türkiye Takvimi';
     try {
       await Share.share({
         message: `${appHeader}\n\n"${text}"\n\n${appFooter}`,
@@ -431,7 +431,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
               <ChevronDown size={16} color="#ffffff" style={styles.cityChevron} />
             </View>
             <Text style={styles.districtSubText} numberOfLines={1}>
-              {currentCity.district ? `${currentCity.district} • Türkiye Takvimi` : t('vakitler.turkiyeTakvimiTimes')}
+              {currentCity.district ? `${currentCity.district} • ${t('vakitler.calendarSource')}` : t('vakitler.turkiyeTakvimiTimes')}
             </Text>
           </TouchableOpacity>
 
@@ -457,7 +457,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
             style={styles.headerLangBtn}
             accessibilityLabel={t('language.changeLanguage')}
           >
-            <Globe size={13} color="#ffffff" />
+            <Globe size={21} color="#ffffff" />
             <Text style={styles.headerLangText}>
               {language.toUpperCase()}
             </Text>
@@ -468,7 +468,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
             style={styles.headerThemeBtn}
             accessibilityLabel={t('common.themeToggle')}
           >
-            {isDarkMode ? <Sun size={15} color="#ffffff" /> : <Moon size={15} color="#ffffff" />}
+            {isDarkMode ? <Sun size={22} color="#ffffff" /> : <Moon size={22} color="#ffffff" />}
           </TouchableOpacity>
         </View>
       </View>
@@ -497,6 +497,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
               styles.segmentButtonText,
               { color: activePage === 0 ? '#ffffff' : theme.textSecondary },
             ]}
+            numberOfLines={1}
           >
             {t('vakitler.mainPrayers')}
           </Text>
@@ -514,6 +515,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
               styles.segmentButtonText,
               { color: activePage === 1 ? '#ffffff' : theme.textSecondary },
             ]}
+            numberOfLines={1}
           >
             {t('vakitler.allPrayers')}
           </Text>
@@ -547,7 +549,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
             <View style={styles.loadingBanner}>
               <ActivityIndicator size="small" color={COLORS.primary} />
               <Text style={[styles.loadingBannerText, { color: theme.textMuted }]}>
-                Türkiye Takvimi'nden vakitler güncelleniyor...
+                {t('vakitler.updatingTimes')}
               </Text>
             </View>
           )}
@@ -556,7 +558,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
           {!loading && isOffline && (
             <View style={styles.loadingBanner}>
               <Text style={[styles.loadingBannerText, { color: theme.textMuted }]}>
-                Çevrimdışı — internet bağlantısı bekleniyor
+                {t('vakitler.offlineNotice')}
               </Text>
             </View>
           )}
@@ -581,7 +583,7 @@ export const Vakitler: React.FC<VakitlerProps> = ({
                 <View style={[styles.quoteIconBox, isRTL ? { marginLeft: 8, marginRight: 0 } : { marginRight: 8 }]}>
                   <Quote size={13} color={COLORS.primary} />
                 </View>
-                <Text style={styles.quoteBadgeText}>{toUpper(t('vakitler.quoteOfTheDay'))}</Text>
+                <Text style={styles.quoteBadgeText} numberOfLines={1}>{toUpper(t('vakitler.quoteOfTheDay'))}</Text>
               </View>
 
               <TouchableOpacity
@@ -608,7 +610,14 @@ export const Vakitler: React.FC<VakitlerProps> = ({
             </Text>
 
             <View style={[styles.quoteFooterRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={[styles.quoteAuthor, { color: isDarkMode ? COLORS.accentRed : COLORS.primary }]}>
+              <Text
+                style={[
+                  styles.quoteAuthor,
+                  { color: isDarkMode ? COLORS.accentRed : COLORS.primary },
+                  isRTL ? { marginLeft: 8 } : { marginRight: 8 },
+                ]}
+                numberOfLines={1}
+              >
                 {quoteAuthor}
               </Text>
               <TouchableOpacity onPress={() => setShowQuoteModal(true)}>
@@ -691,16 +700,22 @@ export const Vakitler: React.FC<VakitlerProps> = ({
                       isSel && { backgroundColor: isDarkMode ? 'rgba(160,24,38,0.18)' : 'rgba(160,24,38,0.06)' },
                     ]}
                   >
-                    <View style={isRTL && { alignItems: 'flex-end' }}>
+                    <View
+                      style={[
+                        { flex: 1 },
+                        isRTL ? { alignItems: 'flex-end', marginLeft: 8 } : { marginRight: 8 },
+                      ]}
+                    >
                       <Text
                         style={[
                           styles.citySheetRowName,
                           { color: isSel ? (isDarkMode ? COLORS.accentRed : COLORS.primary) : theme.textPrimary },
                         ]}
+                        numberOfLines={1}
                       >
                         {c.name}
                       </Text>
-                      <Text style={[styles.citySheetRowSub, { color: theme.textMuted }]}>
+                      <Text style={[styles.citySheetRowSub, { color: theme.textMuted }]} numberOfLines={1}>
                         {c.city}, {c.country}
                       </Text>
                     </View>
@@ -935,9 +950,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   headerThemeBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -946,14 +961,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    height: 26,
-    paddingHorizontal: 9,
-    borderRadius: 13,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
   },
   headerLangText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
     color: '#ffffff',
   },
@@ -997,20 +1012,24 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   quoteHeaderLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 8,
   },
   quoteIconBox: {
     padding: 4,
     backgroundColor: 'rgba(160, 24, 38, 0.08)',
     borderRadius: 6,
     marginRight: 6,
+    flexShrink: 0,
   },
   quoteBadgeText: {
     fontSize: 9.5,
     fontWeight: '900',
     color: '#9ca3af',
     letterSpacing: 1.2,
+    flexShrink: 1,
   },
   quoteShareBtn: {
     flexDirection: 'row',
@@ -1020,6 +1039,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 7,
     backgroundColor: 'rgba(160, 24, 38, 0.06)',
+    flexShrink: 0,
   },
   quoteShareText: {
     fontSize: 9.5,
@@ -1038,6 +1058,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   quoteAuthor: {
+    flex: 1,
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1,
@@ -1045,6 +1066,7 @@ const styles = StyleSheet.create({
   readMoreText: {
     fontSize: 10.5,
     fontWeight: '700',
+    flexShrink: 0,
   },
   modalOverlay: {
     flex: 1,

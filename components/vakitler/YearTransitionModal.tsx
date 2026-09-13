@@ -19,6 +19,7 @@ import {
   ArrowRight,
 } from 'lucide-react-native';
 import { COLORS } from '../../constants';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface YearTransitionModalProps {
   visible: boolean;
@@ -35,6 +36,7 @@ export const YearTransitionModal: React.FC<YearTransitionModalProps> = ({
   onComplete,
   isDarkMode = true,
 }) => {
+  const { t, isRTL } = useLanguage();
   const [countdown, setCountdown] = useState(5);
   const [step1Done, setStep1Done] = useState(false);
   const [step2Done, setStep2Done] = useState(false);
@@ -134,13 +136,13 @@ export const YearTransitionModal: React.FC<YearTransitionModalProps> = ({
           {/* Title Header */}
           <View style={styles.headerArea}>
             <View style={styles.yearPill}>
-              <Text style={styles.yearPillText}>YENİ TAKVİM YILI</Text>
+              <Text style={styles.yearPillText}>{t('transitionModal.badge')}</Text>
             </View>
             <Text style={[styles.bigYearText, { color: isDarkMode ? '#ffffff' : '#111827' }]}>
               {targetYear}
             </Text>
             <Text style={styles.warningSubtitle}>
-              {targetYear} Yılı Vakit ve Takvim Verileri İndirilmektedir
+              {t('transitionModal.downloading', { year: targetYear })}
             </Text>
           </View>
 
@@ -153,27 +155,29 @@ export const YearTransitionModal: React.FC<YearTransitionModalProps> = ({
           >
             <Clock size={16} color={COLORS.accentRed} />
             <Text style={styles.countdownLabel}>
-              {isReady ? 'Veriler Başarıyla Hazırlandı' : `Senkronizasyon: 00:0${countdown}`}
+              {isReady
+                ? t('transitionModal.ready')
+                : t('transitionModal.syncing', { countdown })}
             </Text>
           </View>
 
           {/* Detailed Progress Steps Checklist */}
           <View style={[styles.stepsContainer, { borderColor: isDarkMode ? '#262626' : '#f3f4f6' }]}>
             {/* Step 1: Prayer Times */}
-            <View style={styles.stepRow}>
+            <View style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={styles.stepIconBox}>
                 <Clock size={15} color={step1Done ? '#16a34a' : COLORS.accentRed} />
               </View>
-              <View style={styles.stepInfo}>
+              <View style={[styles.stepInfo, isRTL && { alignItems: 'flex-end' }]}>
                 <Text
                   style={[
                     styles.stepTitle,
                     { color: isDarkMode ? '#ffffff' : '#1f2937' },
                   ]}
                 >
-                  {targetYear} Yıllık Namaz Vakitleri
+                  {t('transitionModal.step1Title', { year: targetYear })}
                 </Text>
-                <Text style={styles.stepSub}>Türkiye Takvimi resmi vakit tablosu</Text>
+                <Text style={styles.stepSub}>{t('transitionModal.step1Sub')}</Text>
               </View>
               {step1Done ? (
                 <CheckCircle2 size={18} color="#16a34a" />
@@ -185,20 +189,20 @@ export const YearTransitionModal: React.FC<YearTransitionModalProps> = ({
             <View style={[styles.stepDivider, { backgroundColor: isDarkMode ? '#222' : '#f3f4f6' }]} />
 
             {/* Step 2: Hijri Calendar & Important Days */}
-            <View style={styles.stepRow}>
+            <View style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={styles.stepIconBox}>
                 <MoonStar size={15} color={step2Done ? '#16a34a' : COLORS.accentRed} />
               </View>
-              <View style={styles.stepInfo}>
+              <View style={[styles.stepInfo, isRTL && { alignItems: 'flex-end' }]}>
                 <Text
                   style={[
                     styles.stepTitle,
                     { color: isDarkMode ? '#ffffff' : '#1f2937' },
                   ]}
                 >
-                  Hicri Takvim ve Dini Günler
+                  {t('transitionModal.step2Title')}
                 </Text>
-                <Text style={styles.stepSub}>Kandil ve bayram tarihleri</Text>
+                <Text style={styles.stepSub}>{t('transitionModal.step2Sub')}</Text>
               </View>
               {step2Done ? (
                 <CheckCircle2 size={18} color="#16a34a" />
@@ -212,20 +216,20 @@ export const YearTransitionModal: React.FC<YearTransitionModalProps> = ({
             <View style={[styles.stepDivider, { backgroundColor: isDarkMode ? '#222' : '#f3f4f6' }]} />
 
             {/* Step 3: Qibla & Solar Calculations */}
-            <View style={styles.stepRow}>
+            <View style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={styles.stepIconBox}>
                 <Compass size={15} color={step3Done ? '#16a34a' : COLORS.accentRed} />
               </View>
-              <View style={styles.stepInfo}>
+              <View style={[styles.stepInfo, isRTL && { alignItems: 'flex-end' }]}>
                 <Text
                   style={[
                     styles.stepTitle,
                     { color: isDarkMode ? '#ffffff' : '#1f2937' },
                   ]}
                 >
-                  Kıble Açısı ve Mahalli Saatler
+                  {t('transitionModal.step3Title')}
                 </Text>
-                <Text style={styles.stepSub}>Astronomik rasat doğrulaması</Text>
+                <Text style={styles.stepSub}>{t('transitionModal.step3Sub')}</Text>
               </View>
               {step3Done ? (
                 <CheckCircle2 size={18} color="#16a34a" />
@@ -246,13 +250,18 @@ export const YearTransitionModal: React.FC<YearTransitionModalProps> = ({
               styles.actionButton,
               {
                 backgroundColor: isReady ? COLORS.primary : (isDarkMode ? '#2a2a2a' : '#e5e7eb'),
+                flexDirection: isRTL ? 'row-reverse' : 'row',
               },
             ]}
           >
             {isReady ? (
               <>
-                <Text style={styles.actionButtonText}>Takvimi Görüntüle</Text>
-                <ArrowRight size={18} color="#ffffff" />
+                <Text style={styles.actionButtonText}>{t('transitionModal.viewCalendar')}</Text>
+                <ArrowRight
+                  size={18}
+                  color="#ffffff"
+                  style={isRTL ? { transform: [{ rotate: '180deg' }] } : undefined}
+                />
               </>
             ) : (
               <>
@@ -263,7 +272,7 @@ export const YearTransitionModal: React.FC<YearTransitionModalProps> = ({
                     { color: isDarkMode ? '#9ca3af' : '#6b7280' },
                   ]}
                 >
-                  Veriler Hazırlanıyor...
+                  {t('transitionModal.preparing')}
                 </Text>
               </>
             )}

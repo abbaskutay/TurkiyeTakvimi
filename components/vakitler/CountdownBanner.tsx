@@ -24,7 +24,7 @@ export const CountdownBanner: React.FC<CountdownBannerProps> = ({
   getPrayerIcon,
 }) => {
   const { isDarkMode } = useTheme();
-  const { t, getPrayerName, isRTL, toUpper } = useLanguage();
+  const { t, getPrayerName, isRTL, toUpper, language } = useLanguage();
   const { countdownInfo } = useTimer(
     activePage,
     mainPrayerTimes,
@@ -45,15 +45,27 @@ export const CountdownBanner: React.FC<CountdownBannerProps> = ({
         ]}
       >
         <View style={[styles.floatingCountdownContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.floatingCountdownLeft, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View
+            style={[
+              styles.floatingCountdownLeft,
+              { flexDirection: isRTL ? 'row-reverse' : 'row' },
+              isRTL ? { marginLeft: 8 } : { marginRight: 8 },
+            ]}
+          >
             <View style={[styles.floatingIconBadge, isRTL ? { marginLeft: 8, marginRight: 0 } : { marginRight: 8 }]}>
               {getPrayerIcon(countdownInfo.id, 16, '#ffffff')}
             </View>
-            <View>
-              <Text style={[styles.floatingSubLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+            <View style={styles.floatingTextContainer}>
+              <Text
+                style={[styles.floatingSubLabel, { textAlign: isRTL ? 'right' : 'left' }]}
+                numberOfLines={1}
+              >
                 {t('vakitler.nextPrayer')}
               </Text>
-              <Text style={[styles.floatingPrayerName, { textAlign: isRTL ? 'right' : 'left' }]}>
+              <Text
+                style={[styles.floatingPrayerName, { textAlign: isRTL ? 'right' : 'left' }]}
+                numberOfLines={1}
+              >
                 {toUpper(getPrayerName(countdownInfo.id))}
               </Text>
             </View>
@@ -67,7 +79,9 @@ export const CountdownBanner: React.FC<CountdownBannerProps> = ({
               <Text style={styles.floatingTimerColon}>:</Text>
               <Text style={[styles.floatingTimerText, { color: COLORS.accentRed }]}>{countdownInfo.s}</Text>
             </View>
-            <Text style={styles.progressPercentText}>%{countdownInfo.progress}</Text>
+            <Text style={styles.progressPercentText}>
+              {language === 'tr' ? `%${countdownInfo.progress}` : `${countdownInfo.progress}%`}
+            </Text>
           </View>
         </View>
 
@@ -105,8 +119,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   floatingCountdownLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  floatingTextContainer: {
+    flex: 1,
   },
   floatingIconBadge: {
     width: 30,
@@ -116,6 +134,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
+    flexShrink: 0,
   },
   floatingSubLabel: {
     fontSize: 8,
@@ -131,6 +150,7 @@ const styles = StyleSheet.create({
   },
   floatingTimerRight: {
     alignItems: 'flex-end',
+    flexShrink: 0,
   },
   floatingTimerDigits: {
     flexDirection: 'row',

@@ -52,7 +52,8 @@ export const Sehirler: React.FC<SehirlerProps> = ({
   const cities = propCities || contextCities;
   const onUpdateCities = propOnUpdateCities || contextUpdateCities;
 
-  const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ApiSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -72,7 +73,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
     }
     abortControllerRef.current = new AbortController();
 
-    setLoading(true);
+    setSearchLoading(true);
     try {
       const results = await searchCitiesLocalized(query, 12, abortControllerRef.current.signal);
       setSearchResults(results);
@@ -83,7 +84,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
       console.error('City search error:', error);
       setSearchResults([]);
     } finally {
-      setLoading(false);
+      setSearchLoading(false);
     }
   };
 
@@ -137,7 +138,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
 
   const removeCity = (id: string) => {
     if (cities.length <= 1) {
-      Alert.alert('Uyarı', 'En az bir şehir listede kalmalıdır.');
+      Alert.alert(t('common.warning'), t('cities.minCityWarning'));
       return;
     }
     const updatedCities = cities.filter(c => c.id !== id);
@@ -148,12 +149,12 @@ export const Sehirler: React.FC<SehirlerProps> = ({
   };
 
   const handleGetLocation = async () => {
-    setLoading(true);
+    setGpsLoading(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('İzin Gerekli', 'Mevcut konumunuzu alabilmek için konum izni vermeniz gerekmektedir.');
-        setLoading(false);
+        Alert.alert(t('common.permissionRequired'), t('cities.locationPermissionDesc'));
+        setGpsLoading(false);
         return;
       }
 
@@ -162,8 +163,8 @@ export const Sehirler: React.FC<SehirlerProps> = ({
       });
 
       if (!location || !location.coords) {
-        Alert.alert('Hata', 'Konum tespiti yapılamadı.');
-        setLoading(false);
+        Alert.alert(t('common.error'), t('cities.locationFailed'));
+        setGpsLoading(false);
         return;
       }
 
@@ -194,9 +195,9 @@ export const Sehirler: React.FC<SehirlerProps> = ({
       }
     } catch (error) {
       console.error('Location error:', error);
-      Alert.alert('Hata', 'Konum bilgisi alınamadı.');
+      Alert.alert(t('common.error'), t('cities.locationFailed'));
     } finally {
-      setLoading(false);
+      setGpsLoading(false);
     }
   };
 
@@ -206,9 +207,24 @@ export const Sehirler: React.FC<SehirlerProps> = ({
       <View style={[styles.headerBanner, { backgroundColor: theme.headerBg }]}>
         {!isSearching ? (
           <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={isRTL && { alignItems: 'flex-end' }}>
-              <Text style={styles.headerTitle}>{t('cities.title')}</Text>
-              <Text style={styles.headerSubtitle}>{t('cities.subtitle')}</Text>
+            <View
+              style={[
+                styles.headerLeft,
+                isRTL ? { alignItems: 'flex-end', marginLeft: 12 } : { alignItems: 'flex-start', marginRight: 12 },
+              ]}
+            >
+              <Text
+                style={[styles.headerTitle, { textAlign: isRTL ? 'right' : 'left' }]}
+                numberOfLines={1}
+              >
+                {t('cities.title')}
+              </Text>
+              <Text
+                style={[styles.headerSubtitle, { textAlign: isRTL ? 'right' : 'left' }]}
+                numberOfLines={1}
+              >
+                {t('cities.subtitle')}
+              </Text>
             </View>
             <View style={[styles.headerActionBtns, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
@@ -217,7 +233,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                 style={[styles.headerBtn, styles.headerBtnInactive]}
                 accessibilityLabel={t('language.changeLanguage')}
               >
-                <Globe size={18} color="#ffffff" />
+                <Globe size={24} color="#ffffff" />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={toggleTheme}
@@ -225,33 +241,41 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                 style={[styles.headerBtn, styles.headerBtnInactive]}
                 accessibilityLabel={t('common.themeToggle')}
               >
-                {isDarkMode ? <Sun size={20} color="#ffffff" /> : <Moon size={20} color="#ffffff" />}
+                {isDarkMode ? <Sun size={24} color="#ffffff" /> : <Moon size={24} color="#ffffff" />}
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setIsEditing(!isEditing)}
+                activeOpacity={0.8}
                 style={[
                   styles.headerBtn,
                   isEditing ? styles.headerBtnActive : styles.headerBtnInactive,
                 ]}
+                accessibilityLabel={isEditing ? t('common.done') : t('common.edit')}
               >
                 {isEditing ? (
-                  <CheckCircle2 size={20} color={COLORS.primary} />
+                  <CheckCircle2 size={24} color={COLORS.primary} />
                 ) : (
-                  <Edit2 size={20} color="#ffffff" />
+                  <Edit2 size={22} color="#ffffff" />
                 )}
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setIsSearching(true)}
+                activeOpacity={0.8}
                 style={[styles.headerBtn, styles.headerBtnInactive]}
+                accessibilityLabel={t('common.search')}
               >
-                <Search size={20} color="#ffffff" />
+                <Search size={24} color="#ffffff" />
               </TouchableOpacity>
             </View>
           </View>
         ) : (
           <View style={[styles.searchBarRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={[styles.searchInputContainer, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Search size={18} color="rgba(255,255,255,0.6)" style={styles.searchIcon} />
+              <Search
+                size={22}
+                color="rgba(255,255,255,0.7)"
+                style={[styles.searchIcon, isRTL ? { marginLeft: 8 } : { marginRight: 8 }]}
+              />
               <TextInput
                 autoFocus
                 placeholder={t('cities.searchPlaceholder')}
@@ -261,8 +285,12 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                 style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
-                  <X size={16} color="rgba(255,255,255,0.6)" />
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  style={styles.clearSearchBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={21} color="rgba(255,255,255,0.7)" />
                 </TouchableOpacity>
               )}
             </View>
@@ -273,6 +301,7 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                 setSearchResults([]);
               }}
               style={styles.cancelSearchBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Text style={styles.cancelSearchText}>{toUpper(t('common.close'))}</Text>
             </TouchableOpacity>
@@ -290,11 +319,11 @@ export const Sehirler: React.FC<SehirlerProps> = ({
             {/* Search Results Dropdown */}
             {isSearching && searchQuery.trim().length >= 2 && (
               <View style={[styles.searchResultsCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                {loading ? (
+                {searchLoading ? (
                   <View style={styles.searchLoadingBox}>
                     <ActivityIndicator size="small" color={COLORS.primary} />
                     <Text style={[styles.searchLoadingText, { color: theme.textMuted }]}>
-                      Türkiye Takvimi veritabanında aranıyor...
+                      {t('cities.searchingDatabase')}
                     </Text>
                   </View>
                 ) : searchResults.length > 0 ? (
@@ -304,24 +333,36 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                       onPress={() => selectSearchResult(result)}
                       style={[
                         styles.searchResultRow,
+                        { flexDirection: isRTL ? 'row-reverse' : 'row' },
                         idx < searchResults.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.cardBorder },
                       ]}
                     >
-                      <View style={styles.searchResultInfo}>
-                        <Text style={[styles.searchResultName, { color: theme.textPrimary }]}>
+                      <View
+                        style={[
+                          styles.searchResultInfo,
+                          isRTL ? { marginLeft: 10, alignItems: 'flex-end' } : { marginRight: 10, alignItems: 'flex-start' },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.searchResultName, { color: theme.textPrimary, textAlign: isRTL ? 'right' : 'left' }]}
+                          numberOfLines={1}
+                        >
                           {getDisplayCityName(result.NameTR, result.NameEN, language)}
                         </Text>
-                        <Text style={[styles.searchResultSub, { color: theme.textSecondary }]}>
+                        <Text
+                          style={[styles.searchResultSub, { color: theme.textSecondary, textAlign: isRTL ? 'right' : 'left' }]}
+                          numberOfLines={1}
+                        >
                           {result.cityStateTR ? `${result.cityStateTR}, ` : ''}{result.countryName || 'Türkiye'}
                         </Text>
                       </View>
-                      <Plus size={18} color={COLORS.primary} />
+                      <Plus size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                   ))
                 ) : (
                   <View style={styles.noResultsBox}>
                     <Text style={[styles.noResultsText, { color: theme.textMuted }]}>
-                      {t('cities.noSavedCities')}
+                      {t('cities.noCitiesFound')}
                     </Text>
                   </View>
                 )}
@@ -331,7 +372,8 @@ export const Sehirler: React.FC<SehirlerProps> = ({
             {/* Use Current GPS Location Button */}
             <TouchableOpacity
               onPress={handleGetLocation}
-              disabled={loading}
+              disabled={gpsLoading}
+              activeOpacity={0.8}
               style={[
                 styles.currentLocationButton,
                 {
@@ -341,12 +383,12 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                 },
               ]}
             >
-              {loading ? (
+              {gpsLoading ? (
                 <ActivityIndicator size="small" color={COLORS.primary} />
               ) : (
-                <MapPin size={20} color={COLORS.primary} />
+                <MapPin size={24} color={COLORS.primary} />
               )}
-              <Text style={[styles.currentLocationText, { color: theme.textPrimary }]}>
+              <Text style={[styles.currentLocationText, { color: theme.textPrimary }]} numberOfLines={1}>
                 {toUpper(t('cities.myLocationGps'))}
               </Text>
             </TouchableOpacity>
@@ -378,12 +420,13 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                   item.isCurrent
                     ? { backgroundColor: COLORS.primary }
                     : { backgroundColor: isDarkMode ? '#1a1a1a' : '#f3f4f6' },
+                  isRTL ? { marginLeft: 12 } : { marginRight: 12 },
                 ]}
               >
                 {item.isCurrent ? (
-                  <Check size={20} color="#ffffff" />
+                  <Check size={24} color="#ffffff" />
                 ) : (
-                  <Globe size={20} color={theme.textMuted} />
+                  <Globe size={24} color={theme.textMuted} />
                 )}
               </View>
               <View style={[styles.cityTextCol, isRTL && { alignItems: 'flex-end' }]}>
@@ -393,16 +436,19 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                       styles.cityNameText,
                       { color: item.isCurrent ? (isDarkMode ? '#ffffff' : '#111827') : theme.textSecondary },
                     ]}
+                    numberOfLines={1}
                   >
                     {getDisplayCityName(item.name, item.name, language)}
                   </Text>
                   {item.isCurrent && (
                     <View style={styles.activePill}>
-                      <Text style={styles.activePillText}>{toUpper(t('cities.defaultCity'))}</Text>
+                      <Text style={styles.activePillText} numberOfLines={1}>
+                        {toUpper(t('cities.defaultCity'))}
+                      </Text>
                     </View>
                   )}
                 </View>
-                <Text style={[styles.cityRegionText, { color: theme.textMuted }]}>
+                <Text style={[styles.cityRegionText, { color: theme.textMuted }]} numberOfLines={1}>
                   {item.city}, {item.country} {item.cityID ? `(ID: ${item.cityID})` : ''}
                 </Text>
               </View>
@@ -414,11 +460,11 @@ export const Sehirler: React.FC<SehirlerProps> = ({
                 style={styles.deleteBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Trash2 size={20} color={COLORS.accentRed} />
+                <Trash2 size={22} color={COLORS.accentRed} />
               </TouchableOpacity>
             ) : (
               <ChevronRight
-                size={20}
+                size={24}
                 color={item.isCurrent ? COLORS.primary : theme.textMuted}
                 style={isRTL ? { transform: [{ rotate: '180deg' }] } : undefined}
               />
@@ -443,43 +489,53 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerBanner: {
-    paddingTop: 20,
-    paddingBottom: 22,
+    paddingVertical: 14,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    minHeight: 66,
+    justifyContent: 'center',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 38,
+  },
+  headerLeft: {
+    flex: 1,
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    lineHeight: 22,
   },
   headerSubtitle: {
     fontSize: 10,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.6)',
-    letterSpacing: 2,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 0.5,
     marginTop: 2,
+    lineHeight: 14,
   },
   headerActionBtns: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
   },
   headerBtn: {
     width: 44,
     height: 44,
-    borderRadius: 16,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -492,50 +548,53 @@ const styles = StyleSheet.create({
   searchBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    minHeight: 40,
   },
   searchInputContainer: {
     flex: 1,
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     borderRadius: 20,
     paddingHorizontal: 14,
-    height: 46,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.25)',
   },
-  searchIcon: {
-    marginRight: 8,
-  },
+  searchIcon: {},
   searchInput: {
     flex: 1,
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
+    paddingVertical: 0,
   },
   clearSearchBtn: {
     padding: 4,
   },
   cancelSearchBtn: {
-    paddingVertical: 8,
+    height: 40,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cancelSearchText: {
     fontSize: 11,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 1.5,
+    letterSpacing: 1,
   },
   listContent: {
     padding: 16,
     paddingBottom: 100,
-    gap: 12,
+    gap: 10,
   },
   searchResultsCard: {
     borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -543,27 +602,27 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   searchLoadingBox: {
-    padding: 24,
+    padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
   },
   searchLoadingText: {
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   searchResultRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 14,
   },
   searchResultInfo: {
     flex: 1,
-    marginRight: 10,
   },
   searchResultName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
   searchResultSub: {
@@ -572,7 +631,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   noResultsBox: {
-    padding: 20,
+    padding: 18,
     alignItems: 'center',
   },
   noResultsText: {
@@ -584,24 +643,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    borderRadius: 22,
+    height: 52,
+    borderRadius: 20,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    marginBottom: 8,
+    marginBottom: 4,
     gap: 10,
+    paddingHorizontal: 16,
   },
   currentLocationText: {
     fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   cityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 22,
+    padding: 14,
+    borderRadius: 20,
     borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -618,12 +680,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cityIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
   },
   cityTextCol: {
     flex: 1,
@@ -636,18 +697,20 @@ const styles = StyleSheet.create({
   cityNameText: {
     fontSize: 15,
     fontWeight: '800',
+    flexShrink: 1,
   },
   activePill: {
     backgroundColor: 'rgba(160, 24, 38, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+    flexShrink: 0,
   },
   activePillText: {
     fontSize: 8,
     fontWeight: '900',
     color: COLORS.primary,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   cityRegionText: {
     fontSize: 11,

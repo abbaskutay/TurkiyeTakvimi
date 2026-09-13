@@ -114,6 +114,7 @@ const MainScreen: React.FC = () => {
                     letterSpacing: isRTL ? 0 : 0.8,
                   },
                 ]}
+                numberOfLines={1}
               >
                 {tab.label}
               </Text>
