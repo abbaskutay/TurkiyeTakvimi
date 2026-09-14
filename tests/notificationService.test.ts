@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { notificationService } from '../services/notificationService';
 import { mockNotificationState } from './mocks/expoNotificationsMock';
 import { ReminderConfig } from '../types';
-import { ApiVakitItem } from '../services/turkTakvimApi';
+import { ApiVakitItem } from '../services/turkishCalendarApi';
 
 function createFutureVakit(daysAhead: number): ApiVakitItem {
   const d = new Date();

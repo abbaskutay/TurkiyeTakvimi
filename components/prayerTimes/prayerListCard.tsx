@@ -71,6 +71,9 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
         const isUpcoming = prayer.id === upcomingId && activePage === 0;
         const reminder = reminders[prayer.id];
 
+        const activeBg = isDarkMode ? 'rgba(255, 77, 94, 0.16)' : '#fdf1f2';
+        const activeAccentColor = isDarkMode ? COLORS.accentRed : COLORS.primary;
+
         return (
           <View
             key={prayer.id}
@@ -81,7 +84,15 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
               isUpcoming
                 ? styles.upcomingPrayerRow
                 : isActive
-                ? { backgroundColor: isDarkMode ? 'rgba(160, 24, 38, 0.15)' : 'rgba(160, 24, 38, 0.05)' }
+                ? [
+                    styles.activePrayerRow,
+                    {
+                      backgroundColor: activeBg,
+                      borderLeftColor: activeAccentColor,
+                      borderRightColor: activeAccentColor,
+                    },
+                    isRTL ? { borderRightWidth: 4 } : { borderLeftWidth: 4 },
+                  ]
                 : null,
             ]}
           >
@@ -98,13 +109,15 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                   isRTL ? { marginLeft: 12, marginRight: 0 } : { marginRight: 12 },
                   isUpcoming
                     ? styles.upcomingIconBox
+                    : isActive
+                    ? { backgroundColor: isDarkMode ? 'rgba(255, 77, 94, 0.22)' : 'rgba(160, 24, 38, 0.14)' }
                     : { backgroundColor: isDarkMode ? '#1a1a1a' : '#f3f4f6' },
                 ]}
               >
                 {getPrayerIcon(
                   prayer.id,
                   20,
-                  isUpcoming ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary
+                  isUpcoming ? '#ffffff' : isActive ? activeAccentColor : isDarkMode ? COLORS.accentRed : COLORS.primary
                 )}
               </View>
 
@@ -117,10 +130,9 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                         color: isUpcoming
                           ? '#ffffff'
                           : isActive
-                          ? isDarkMode
-                            ? COLORS.accentRed
-                            : COLORS.primary
+                          ? activeAccentColor
                           : theme.textPrimary,
+                        fontWeight: isActive || isUpcoming ? '900' : '800',
                         textAlign: isRTL ? 'right' : 'left',
                       },
                     ]}
@@ -128,13 +140,26 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                   >
                     {getPrayerName(prayer.id)}
                   </Text>
-                  {isUpcoming && (
+                  {isUpcoming ? (
                     <View style={[styles.upcomingBadge, isRTL ? { marginRight: 6, marginLeft: 0 } : { marginLeft: 6 }]}>
                       <Text style={styles.upcomingBadgeText}>{t('vakitler.nextPrayer')}</Text>
                     </View>
-                  )}
+                  ) : isActive ? (
+                    <View
+                      style={[
+                        styles.activeBadge,
+                        { backgroundColor: isDarkMode ? 'rgba(255, 77, 94, 0.22)' : 'rgba(160, 24, 38, 0.12)' },
+                        isRTL ? { marginRight: 6, marginLeft: 0 } : { marginLeft: 6 },
+                      ]}
+                    >
+                      <View style={[styles.activeDot, { backgroundColor: activeAccentColor }]} />
+                      <Text style={[styles.activeBadgeText, { color: activeAccentColor }]}>
+                        {toUpper(t('vakitler.currentPrayer'))}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
-                {reminder?.enabled && globalRemindersEnabled && (
+                {reminder?.enabled && globalRemindersEnabled && reminder.offset > 0 && (
                   <Text
                     style={[
                       styles.reminderOffsetSubText,
@@ -144,9 +169,7 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                       },
                     ]}
                   >
-                    {reminder.offset === 0
-                      ? t('reminders.atTime')
-                      : t('reminders.minutesBefore', { minutes: reminder.offset })}
+                    {t('reminders.minutesBefore', { minutes: reminder.offset })}
                   </Text>
                 )}
               </View>
@@ -160,10 +183,9 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                     color: isUpcoming
                       ? '#ffffff'
                       : isActive
-                      ? isDarkMode
-                        ? COLORS.accentRed
-                        : COLORS.primary
+                      ? activeAccentColor
                       : theme.textPrimary,
+                    fontWeight: isActive || isUpcoming ? '900' : '800',
                   },
                 ]}
               >
@@ -176,7 +198,7 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 {reminder?.enabled && globalRemindersEnabled ? (
-                  <Bell size={19} color={isUpcoming ? '#ffffff' : COLORS.primary} />
+                  <Bell size={19} color={isUpcoming ? '#ffffff' : isActive ? activeAccentColor : COLORS.primary} />
                 ) : (
                   <BellOff size={19} color={isUpcoming ? 'rgba(255,255,255,0.5)' : theme.textMuted} />
                 )}
@@ -191,8 +213,10 @@ export const PrayerListCard: React.FC<PrayerListCardProps> = ({
 
 const styles = StyleSheet.create({
   prayerListCard: {
+    flex: 1,
     marginHorizontal: 16,
-    marginTop: 10,
+    marginTop: 6,
+    marginBottom: 6,
     borderRadius: 22,
     borderWidth: 1,
     overflow: 'hidden',
@@ -207,11 +231,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderBottomWidth: 1,
   },
   cardHeaderTitle: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '900',
     letterSpacing: 1.2,
     flexShrink: 1,
@@ -233,11 +257,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   prayerRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
     paddingHorizontal: 16,
+    minHeight: 40,
   },
   upcomingPrayerRow: {
     backgroundColor: COLORS.primary,
@@ -250,7 +275,7 @@ const styles = StyleSheet.create({
   prayerIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -269,13 +294,13 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   prayerName: {
-    fontSize: 17,
+    fontSize: 16.5,
     fontWeight: '800',
     flexShrink: 1,
   },
   upcomingBadge: {
     backgroundColor: '#ffffff',
-    paddingHorizontal: 6,
+    paddingHorizontal: 6.5,
     paddingVertical: 2,
     borderRadius: 6,
     marginLeft: 8,
@@ -288,7 +313,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   reminderOffsetSubText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -308,7 +333,29 @@ const styles = StyleSheet.create({
       android: { fontFamily: 'monospace' },
     }),
   },
+  activePrayerRow: {
+    // Leading accent indicator dynamically applied via borderLeftWidth/borderRightWidth
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4.5,
+    paddingHorizontal: 7.5,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    flexShrink: 0,
+  },
+  activeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  activeBadgeText: {
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
   bellButton: {
-    padding: 6,
+    padding: 5,
   },
 });

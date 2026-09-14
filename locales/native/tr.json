@@ -1,0 +1,6 @@
+{
+  "CFBundleDisplayName": "Türkiye Takvimi",
+  "CFBundleName": "Türkiye Takvimi",
+  "NSLocationWhenInUseUsageDescription": "Ezan vakitlerini ve kıble açısını hesaplamak için konumunuza ihtiyaç duyulmaktadır.",
+  "NSLocationAlwaysAndWhenInUseUsageDescription": "Ezan vakitlerini ve kıble açısını hesaplamak için konumunuza ihtiyaç duyulmaktadır."
+}

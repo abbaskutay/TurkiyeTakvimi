@@ -8,22 +8,20 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Clock, Globe, Compass, Calendar, Sun, Moon } from 'lucide-react-native';
+import { Clock, Globe, Compass, Sun, Moon } from 'lucide-react-native';
 import { AppTab } from './types';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
-import { CityProvider, useCity } from './context/CityContext';
+import { CityProvider } from './context/CityContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import Vakitler from './components/Vakitler';
-import Sehirler from './components/Sehirler';
-import Kible from './components/Kible';
-import Gunler from './components/Gunler';
-import SplashScreen from './components/SplashScreen';
+import { ErrorBoundary } from './components/errorBoundary';
+import Vakitler from './components/prayerTimes';
+import Sehirler from './components/cities';
+import { Kible } from './components/qibla';
+import SplashScreen from './components/splashScreen';
 
 const MainScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { isDarkMode, theme, toggleTheme } = useTheme();
-  const { cities, currentCity, updateCities } = useCity();
+  const { isDarkMode, theme } = useTheme();
   const { t, isRTL, toUpper } = useLanguage();
   const [activeTab, setActiveTab] = useState<AppTab>(AppTab.VAKITLER);
 
@@ -32,29 +30,20 @@ const MainScreen: React.FC = () => {
       case AppTab.VAKITLER:
         return (
           <Vakitler
-            currentCity={currentCity}
-            isDarkMode={isDarkMode}
             onNavigateToSehirler={() => setActiveTab(AppTab.SEHIRLER)}
           />
         );
       case AppTab.SEHIRLER:
         return (
           <Sehirler
-            cities={cities}
-            onUpdateCities={updateCities}
-            isDarkMode={isDarkMode}
             onCitySelected={() => setActiveTab(AppTab.VAKITLER)}
           />
         );
       case AppTab.KIBLE:
-        return <Kible currentCity={currentCity} isDarkMode={isDarkMode} />;
-      case AppTab.GUNLER:
-        return <Gunler isDarkMode={isDarkMode} />;
+        return <Kible />;
       default:
         return (
           <Vakitler
-            currentCity={currentCity}
-            isDarkMode={isDarkMode}
             onNavigateToSehirler={() => setActiveTab(AppTab.SEHIRLER)}
           />
         );
@@ -65,7 +54,6 @@ const MainScreen: React.FC = () => {
     { id: AppTab.VAKITLER, label: toUpper(t('tabs.vakitler')), Icon: Clock },
     { id: AppTab.SEHIRLER, label: toUpper(t('tabs.sehirler')), Icon: Globe },
     { id: AppTab.KIBLE, label: toUpper(t('tabs.kible')), Icon: Compass },
-    { id: AppTab.GUNLER, label: toUpper(t('tabs.gunler')), Icon: Calendar },
   ];
 
   return (

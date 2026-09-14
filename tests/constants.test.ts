@@ -12,7 +12,7 @@ import {
   GRID_PRAYER_TIMES,
   TABS,
 } from '../constants';
-import { ApiVakitItem, ApiTakvimVeri } from '../services/turkTakvimApi';
+import { ApiVakitItem, ApiTakvimVeri } from '../services/turkishCalendarApi';
 
 const sampleApiVakit: ApiVakitItem = {
   '@attributes': {

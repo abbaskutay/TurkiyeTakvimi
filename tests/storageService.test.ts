@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storageService } from '../services/storageService';
 import { City, ImportantDay, ReminderConfig } from '../types';
-import { ApiVakitResponse, ApiTakvimVeri } from '../services/turkTakvimApi';
+import { ApiVakitResponse, ApiTakvimVeri } from '../services/turkishCalendarApi';
 
 // In-memory backing store for AsyncStorage
 const inMemoryStore = new Map<string, string>();
@@ -291,4 +291,3 @@ describe('storageService - Quote Translation & Gemini Key Management', () => {
     assert.strictEqual(await storageService.getGeminiApiKey(), 'AIzaSyTestKey123');
   });
 });
-

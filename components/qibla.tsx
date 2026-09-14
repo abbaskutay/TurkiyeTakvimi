@@ -22,25 +22,19 @@ import {
   NamazVaktiQiblaData,
 } from '../utils/qiblaUtils';
 import { useLanguage } from '../context/LanguageContext';
-import { LanguageModal } from './LanguageModal';
-import { CompassDial } from './kible/CompassDial';
-import { QiblaInfoBoard } from './kible/QiblaInfoBoard';
-import { QiblaHeader } from './kible/QiblaHeader';
-import { QiblaSelectors } from './kible/QiblaSelectors';
-
-interface KibleProps {
-  currentCity?: City;
-  isDarkMode?: boolean;
-}
+import { LanguageModal } from './languageModal';
+import { CompassDial } from './qibla/compassDial';
+import { QiblaInfoBoard } from './qibla/qiblaInfoBoard';
+import { QiblaHeader } from './qibla/qiblaHeader';
+import { QiblaSelectors } from './qibla/qiblaSelectors';
 
 type LocationSource = 'city' | 'gps';
 type AngleReference = 'magnetic' | 'geographic';
 
-export const Kible: React.FC<KibleProps> = ({ currentCity: propCity }) => {
+export const Kible: React.FC = () => {
   const { isDarkMode, theme, toggleTheme } = useTheme();
-  const { currentCity: contextCity } = useCity();
+  const { currentCity } = useCity();
   const { t, isRTL, toUpper } = useLanguage();
-  const currentCity = propCity || contextCity;
 
   const [locationSource, setLocationSource] = useState<LocationSource>('city');
   const [angleReference, setAngleReference] = useState<AngleReference>('magnetic');

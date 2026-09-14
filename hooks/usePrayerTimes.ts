@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { turkTakvimApi, ApiVakitResponse, ApiVakitItem, ApiCityInfo, extractApiText } from '../services/turkTakvimApi';
+import { turkTakvimApi, ApiVakitResponse, ApiVakitItem, ApiCityInfo, extractApiText } from '../services/turkishCalendarApi';
 import { storageService } from '../services/storageService';
 import { getLocalDateString } from '../utils/dateUtils';
 

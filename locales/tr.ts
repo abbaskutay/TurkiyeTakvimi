@@ -59,6 +59,7 @@ export const tr = {
     timeRemaining: 'VAKTE KALAN SÜRE',
     remainingTo: 'vaktine kaldı',
     nextPrayer: 'SIRADAKİ VAKİT',
+    currentPrayer: 'ŞU AN',
     timeEntered: 'Vakit girdi',
     turkiyeTakvimiTimes: 'TÜRKİYE TAKVİMİ VAKİTLERİ',
     quoteOfTheDay: 'Günün Sözü',

@@ -152,7 +152,7 @@ Test edilen modüller:
 - `timerLogic.test.ts`: Aktif vakit tespiti, geri sayım hesaplamaları ve gün devri (rollover).
 - `qiblaUtils.test.ts`: Namaz Vakti formülü, manyetik sapma, büyük çember koordinatları ve koordinat çözümleme.
 - `storageService.test.ts`: Önbelleğe alma, okuma, TTL ve kalıcılık doğrulamaları.
-- `turkTakvimApi.test.ts`: Güvenli fetch, HTTPS/HTTP fallback, CDATA ve HTML varlık çözümleme, API endpoint mock testleri.
+- `turkishCalendarApi.test.ts`: Güvenli fetch, HTTPS/HTTP fallback, CDATA ve HTML varlık çözümleme, API endpoint mock testleri.
 - `notificationService.test.ts`: Bildirim planlama ve parametre hesaplama.
 
 ### Canlı API Entegrasyon Testi (Live Integration Test)
@@ -169,7 +169,7 @@ npm run test:live
 
 ```text
 TurkiyeTakvimi/
-├── __tests__/                  # Kapsamlı birim test paketi (62 test)
+├── tests/                      # Kapsamlı birim test paketi (62 test)
 │   ├── mocks/                  # Expo ve ortam mock'ları
 │   ├── setup.ts                # Test ortamı başlatıcı
 │   ├── constants.test.ts
@@ -177,7 +177,7 @@ TurkiyeTakvimi/
 │   ├── qiblaUtils.test.ts
 │   ├── storageService.test.ts
 │   ├── timerLogic.test.ts
-│   └── turkTakvimApi.test.ts
+│   └── turkishCalendarApi.test.ts
 ├── android/                    # Yerel Android derleme dosyaları (Prebuild)
 ├── assets/                     # İkonlar, logolar ve medya dosyaları
 ├── components/                 # React Native UI Bileşenleri
@@ -198,7 +198,7 @@ TurkiyeTakvimi/
 │   ├── usePrayerTimes.ts       # Vakitler, offline önbellek ve retry kancası
 │   └── useTimer.ts             # Geri sayım ve dinamik yenileme zamanlayıcısı
 ├── services/                   # Servis Katmanı
-│   ├── turkTakvimApi.ts        # Türk Takvimi API istemcisi, XML/CDATA ayrıştırıcı
+│   ├── turkishCalendarApi.ts   # Türk Takvimi API istemcisi, XML/CDATA ayrıştırıcı
 │   ├── storageService.ts       # AsyncStorage önbellek ve kalıcı depolama
 │   └── notificationService.ts  # Expo yerel bildirim ve alarm planlayıcısı
 ├── utils/                      # Yardımcı Hesaplama Fonksiyonları
@@ -206,7 +206,7 @@ TurkiyeTakvimi/
 ├── test_all_features.ts        # Canlı uçtan uca özellik test scripti
 ├── constants.tsx               # Renk paletleri, sabitler ve varsayılan veriler
 ├── types.ts                    # TypeScript tip tanımları
-├── App.tsx                     # Kök navigasyon ve tab bar
+├── app.tsx                     # Kök navigasyon ve tab bar
 ├── app.json                    # Expo konfigürasyonu ve izin tanımları
 ├── package.json                # Proje bağımlılıkları ve npm script'leri
 └── README.md                   # Proje Dokümantasyonu

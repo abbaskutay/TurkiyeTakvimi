@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "npx tsx --test -r ./__tests__/setup.ts __tests__/*.test.ts",
+    "test": "npx tsx --test -r ./tests/setup.ts tests/*.test.ts",
     "test:live": "npx tsx test_all_features.ts"
   },
   "dependencies": {

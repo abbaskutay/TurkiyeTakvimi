@@ -11,33 +11,33 @@ import {
 import { MoonStar, Sun, Moon, Globe } from 'lucide-react-native';
 import { ImportantDay } from '../types';
 import { COLORS, MOCK_IMPORTANT_DAYS, mapCalendarToImportantDays } from '../constants';
-import { turkTakvimApi } from '../services/turkTakvimApi';
+import { turkTakvimApi } from '../services/turkishCalendarApi';
 import { storageService } from '../services/storageService';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import { LanguageModal } from './LanguageModal';
+import { LanguageModal } from './languageModal';
 import { formatGregorianDate, formatHicriDate } from '../utils/dateUtils';
 import { translations } from '../locales';
 
 function getLocalizedDayName(name: string, holyDaysDict: Record<string, string>): string {
   if (!holyDaysDict) return name;
   const lower = name.toLowerCase();
-  if (lower.includes('mi’râc') || lower.includes("mi'râc") || lower.includes('mirac')) return holyDaysDict.mirac || name;
+  if (lower.includes('mi’râc') || lower.includes("mi'râc") || lower.includes('mirac') || lower.includes('miraç')) return holyDaysDict.mirac || name;
   if (lower.includes('berât') || lower.includes('berat')) return holyDaysDict.berat || name;
-  if (lower.includes('ramezân') || (lower.includes('ramazan') && lower.includes('başlangıç'))) return holyDaysDict.ramazan_start || name;
-  if (lower.includes('kadir')) return holyDaysDict.kadir || name;
-  if (lower.includes('fıtr bayramı gecesi')) return holyDaysDict.fitr_eve || name;
-  if (lower.includes('fıtr') && lower.includes('1.')) return holyDaysDict.fitr_day1 || name;
-  if (lower.includes('fıtr') && lower.includes('2.')) return holyDaysDict.fitr_day2 || name;
-  if (lower.includes('fıtr') && lower.includes('3.')) return holyDaysDict.fitr_day3 || name;
+  if ((lower.includes('ramezân') || lower.includes('ramazan')) && (lower.includes('başlangıç') || lower.includes('başlangıcı') || lower.includes('baslangic') || lower.includes('baslangici'))) return holyDaysDict.ramazan_start || name;
+  if (lower.includes('kadir') || lower.includes('kadr')) return holyDaysDict.kadir || name;
+  if (lower.includes('fıtr bayramı gecesi') || lower.includes('fitr bayrami gecesi')) return holyDaysDict.fitr_eve || name;
+  if ((lower.includes('fıtr') || lower.includes('fitr')) && lower.includes('1.')) return holyDaysDict.fitr_day1 || name;
+  if ((lower.includes('fıtr') || lower.includes('fitr')) && lower.includes('2.')) return holyDaysDict.fitr_day2 || name;
+  if ((lower.includes('fıtr') || lower.includes('fitr')) && lower.includes('3.')) return holyDaysDict.fitr_day3 || name;
   if (lower.includes('terviye')) return holyDaysDict.terviye || name;
   if (lower.includes('arefe')) return holyDaysDict.arefe || name;
   if (lower.includes('kurban') && lower.includes('1.')) return holyDaysDict.adha_day1 || name;
   if (lower.includes('kurban') && lower.includes('2.')) return holyDaysDict.adha_day2 || name;
   if (lower.includes('kurban') && lower.includes('3.')) return holyDaysDict.adha_day3 || name;
   if (lower.includes('kurban') && lower.includes('4.')) return holyDaysDict.adha_day4 || name;
-  if (lower.includes('senebaşı') || lower.includes('yılbaşı günü')) return holyDaysDict.hijri_year || name;
-  if (lower.includes('muharrem') && lower.includes('gecesi')) return holyDaysDict.hijri_eve || name;
+  if (lower.includes('senebaşı') || lower.includes('yılbaşı günü') || lower.includes('senebasi')) return holyDaysDict.hijri_year || name;
+  if (lower.includes('muharrem') && (lower.includes('gecesi') || lower.includes('yılbaşı') || lower.includes('yilbasi'))) return holyDaysDict.hijri_eve || name;
   if (lower.includes('aşûre gecesi') || lower.includes('asure gecesi')) return holyDaysDict.asure_eve || name;
   if (lower.includes('aşûre') || lower.includes('asure')) return holyDaysDict.asure_day || name;
   if (lower.includes('mevlid')) return holyDaysDict.mevlid || name;
@@ -45,11 +45,7 @@ function getLocalizedDayName(name: string, holyDaysDict: Record<string, string>)
   return name;
 }
 
-interface GunlerProps {
-  isDarkMode?: boolean;
-}
-
-export const Gunler: React.FC<GunlerProps> = () => {
+export const Gunler: React.FC = () => {
   const { isDarkMode, theme, toggleTheme } = useTheme();
   const { language, t, isRTL } = useLanguage();
   const currentYear = new Date().getFullYear();

@@ -39,6 +39,9 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
             const prayerName = getPrayerName(item.id);
             const prayerSub = getPrayerSub(item.id) || item.sub;
 
+            const activeBg = isDarkMode ? 'rgba(255, 77, 94, 0.16)' : '#fdf1f2';
+            const activeAccentColor = isDarkMode ? COLORS.accentRed : COLORS.primary;
+
             return (
               <TouchableOpacity
                 key={item.id}
@@ -56,7 +59,14 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                   isUpcoming
                     ? styles.upcomingGridCell
                     : isActive
-                    ? { backgroundColor: isDarkMode ? 'rgba(160, 24, 38, 0.15)' : 'rgba(160, 24, 38, 0.05)' }
+                    ? [
+                        {
+                          backgroundColor: activeBg,
+                          borderLeftColor: activeAccentColor,
+                          borderRightColor: activeAccentColor,
+                        },
+                        isRTL ? { borderRightWidth: 3 } : { borderLeftWidth: 3 },
+                      ]
                     : null,
                 ]}
               >
@@ -74,20 +84,19 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                   >
                     {getPrayerIcon(
                       item.id,
-                      14,
-                      isUpcoming ? '#ffffff' : isDarkMode ? COLORS.accentRed : COLORS.primary
+                      12,
+                      isUpcoming ? '#ffffff' : isActive ? activeAccentColor : isDarkMode ? COLORS.accentRed : COLORS.primary
                     )}
                     <Text
                       style={[
                         styles.gridCellName,
                         {
                           color: isUpcoming
-                            ? 'rgba(255,255,255,0.85)'
+                            ? '#ffffff'
                             : isActive
-                            ? isDarkMode
-                              ? COLORS.accentRed
-                              : COLORS.primary
+                            ? activeAccentColor
                             : theme.textSecondary,
+                          fontWeight: isActive || isUpcoming ? '900' : '700',
                           textAlign: isRTL ? 'right' : 'left',
                         },
                       ]}
@@ -96,7 +105,41 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                       {toUpper(prayerName)}
                     </Text>
                   </View>
-                  {isUpcoming && <Zap size={12} color="#ffffff" />}
+
+                  <View
+                    style={[
+                      styles.gridCellTimeBox,
+                      { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                    ]}
+                  >
+                    {isUpcoming ? (
+                      <Zap size={10} color="#ffffff" style={isRTL ? { marginLeft: 3 } : { marginRight: 3 }} />
+                    ) : isActive ? (
+                      <View
+                        style={[
+                          styles.activeGridDot,
+                          { backgroundColor: activeAccentColor },
+                          isRTL ? { marginLeft: 3 } : { marginRight: 3 },
+                        ]}
+                      />
+                    ) : null}
+                    <Text
+                      style={[
+                        styles.gridCellTime,
+                        {
+                          color: isUpcoming
+                            ? '#ffffff'
+                            : isActive
+                            ? activeAccentColor
+                            : theme.textPrimary,
+                          fontWeight: isActive || isUpcoming ? '900' : '800',
+                          textAlign: isRTL ? 'right' : 'left',
+                        },
+                      ]}
+                    >
+                      {item.time}
+                    </Text>
+                  </View>
                 </View>
 
                 {prayerSub ? (
@@ -104,8 +147,10 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                     style={[
                       styles.gridCellSub,
                       {
-                        color: isUpcoming ? 'rgba(255,255,255,0.6)' : theme.textMuted,
+                        color: isUpcoming ? 'rgba(255,255,255,0.7)' : theme.textMuted,
                         textAlign: isRTL ? 'right' : 'left',
+                        paddingLeft: isRTL ? 0 : 16,
+                        paddingRight: isRTL ? 16 : 0,
                       },
                     ]}
                     numberOfLines={1}
@@ -113,18 +158,6 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
                     {prayerSub}
                   </Text>
                 ) : null}
-
-                <Text
-                  style={[
-                    styles.gridCellTime,
-                    {
-                      color: isUpcoming ? '#ffffff' : theme.textPrimary,
-                      textAlign: isRTL ? 'right' : 'left',
-                    },
-                  ]}
-                >
-                  {item.time}
-                </Text>
               </TouchableOpacity>
             );
           })}
@@ -136,9 +169,11 @@ export const GridPrayerCard: React.FC<GridPrayerCardProps> = ({
 
 const styles = StyleSheet.create({
   gridContainer: {
+    flex: 1,
     marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 24,
+    marginTop: 6,
+    marginBottom: 6,
+    borderRadius: 22,
     borderWidth: 1,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -148,12 +183,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   gridRow: {
+    flex: 1,
     flexDirection: 'row',
   },
   gridCell: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
     justifyContent: 'center',
   },
   upcomingGridCell: {
@@ -163,29 +199,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
   },
   gridCellTitleRow: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     marginRight: 4,
   },
   gridCellName: {
     fontSize: 10,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     flexShrink: 1,
   },
-  gridCellSub: {
-    fontSize: 9,
-    fontWeight: '600',
-    marginBottom: 4,
+  gridCellTimeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   gridCellTime: {
-    fontSize: 17,
+    fontSize: 13,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
+  },
+  gridCellSub: {
+    fontSize: 8.5,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    marginTop: 1,
+  },
+  activeGridDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
 });

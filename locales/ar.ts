@@ -61,6 +61,7 @@ export const ar: Translations = {
     timeRemaining: 'الوقت المتبقي',
     remainingTo: 'الوقت الباقي لـ',
     nextPrayer: 'الوقت القادم',
+    currentPrayer: 'الوقت الحالي',
     timeEntered: 'دخل الوقت',
     turkiyeTakvimiTimes: 'أوقات الصلاة لمدن العالم',
     quoteOfTheDay: 'حكمة اليوم',

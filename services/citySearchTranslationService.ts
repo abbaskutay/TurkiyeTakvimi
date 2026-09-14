@@ -1,4 +1,4 @@
-import { turkTakvimApi, ApiSearchResult, isAbortError } from './turkTakvimApi';
+import { turkTakvimApi, ApiSearchResult, isAbortError } from './turkishCalendarApi';
 import { CITY_NAME_DICTIONARY, CityDictionaryEntry } from '../data/cityNameDictionary';
 
 /**

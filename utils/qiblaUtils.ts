@@ -1,4 +1,4 @@
-import { ApiCityInfo } from '../services/turkTakvimApi';
+import { ApiCityInfo } from '../services/turkishCalendarApi';
 
 /**
  * Kaaba (Makkah al-Mukarramah) exact coordinates as specified on namazvakti.com/theQibla.php
@@ -434,4 +434,3 @@ export function generateTheQiblaMapHtml(
 </body>
 </html>`;
 }
-

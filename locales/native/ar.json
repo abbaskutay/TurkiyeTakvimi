@@ -1,0 +1,6 @@
+{
+  "CFBundleDisplayName": "تقويم تركيا",
+  "CFBundleName": "تقويم تركيا",
+  "NSLocationWhenInUseUsageDescription": "يلزم تحديد موقعك لحساب مواقيت الصلاة واتجاه القبلة بدقة.",
+  "NSLocationAlwaysAndWhenInUseUsageDescription": "يلزم تحديد موقعك لحساب مواقيت الصلاة واتجاه القبلة بدقة."
+}

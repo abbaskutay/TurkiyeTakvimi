@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { City, ImportantDay, ReminderConfig } from '../types';
-import { ApiTakvimVeri, ApiVakitResponse } from './turkTakvimApi';
+import { ApiTakvimVeri, ApiVakitResponse } from './turkishCalendarApi';
 
 const KEYS = {
   THEME: 'ezan_theme',

@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { turkTakvimApi, extractApiText, isAbortError } from '../services/turkTakvimApi';
+import { turkTakvimApi, extractApiText, isAbortError } from '../services/turkishCalendarApi';
 
 const originalFetch = globalThis.fetch;
 

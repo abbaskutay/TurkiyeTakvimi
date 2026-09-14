@@ -11,15 +11,24 @@
       "resizeMode": "cover",
       "backgroundColor": "#700510"
     },
+    "locales": {
+      "tr": "./locales/native/tr.json",
+      "en": "./locales/native/en.json",
+      "ar": "./locales/native/ar.json"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ezanvakti.app",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Ezan vakitlerini ve kıble açısını hesaplamak için konumunuza ihtiyaç duyulmaktadır."
+        "CFBundleAllowMixedLocalizations": true,
+        "NSLocationWhenInUseUsageDescription": "Ezan vakitlerini ve kıble açısını hesaplamak için konumunuza ihtiyaç duyulmaktadır.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Ezan vakitlerini ve kıble açısını hesaplamak için konumunuza ihtiyaç duyulmaktadır."
       }
     },
     "android": {
       "package": "com.ezanvakti.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#700510"
@@ -35,6 +44,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withAndroidLocalization",
       [
         "expo-location",
         {

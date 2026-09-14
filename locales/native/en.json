@@ -1,0 +1,6 @@
+{
+  "CFBundleDisplayName": "Turkiye Calendar",
+  "CFBundleName": "Turkiye Calendar",
+  "NSLocationWhenInUseUsageDescription": "Your location is required to calculate accurate prayer times and Qibla direction.",
+  "NSLocationAlwaysAndWhenInUseUsageDescription": "Your location is required to calculate accurate prayer times and Qibla direction."
+}

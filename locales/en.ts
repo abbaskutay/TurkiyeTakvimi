@@ -61,6 +61,7 @@ export const en: Translations = {
     timeRemaining: 'TIME REMAINING',
     remainingTo: 'Time until',
     nextPrayer: 'NEXT',
+    currentPrayer: 'CURRENT',
     timeEntered: 'Time entered',
     turkiyeTakvimiTimes: 'TURKIYE CALENDAR',
     quoteOfTheDay: 'Quote of the Day',

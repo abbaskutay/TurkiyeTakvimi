@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { ReminderConfig } from '../types';
-import { ApiVakitItem } from './turkTakvimApi';
+import { ApiVakitItem } from './turkishCalendarApi';
 
 // Configure default notification presentation behavior
 Notifications.setNotificationHandler({

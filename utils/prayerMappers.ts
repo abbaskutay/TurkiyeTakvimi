@@ -1,5 +1,5 @@
 import { PrayerTime, DetailedPrayerTime, ImportantDay } from '../types';
-import { ApiVakitItem, ApiTakvimVeri, extractApiText } from '../services/turkTakvimApi';
+import { ApiVakitItem, ApiTakvimVeri, extractApiText } from '../services/turkishCalendarApi';
 import { formatGregorianDate, formatHicriDate, parseHicriYear } from './dateUtils';
 
 /**

@@ -1,4 +1,4 @@
-import { turkTakvimApi, extractApiText } from './services/turkTakvimApi';
+import { turkTakvimApi, extractApiText } from './services/turkishCalendarApi';
 import {
   parseCityCoordinates,
   calculateNamazVaktiQibla,
@@ -16,7 +16,7 @@ import {
   MOCK_PRAYER_TIMES,
   GRID_PRAYER_TIMES,
 } from './constants';
-import { ApiVakitItem, ApiTakvimVeri } from './services/turkTakvimApi';
+import { ApiVakitItem, ApiTakvimVeri } from './services/turkishCalendarApi';
 
 interface TestResult {
   suite: string;
